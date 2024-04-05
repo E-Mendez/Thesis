@@ -1,0 +1,690 @@
+---
+title: "Intro"
+author: "Eduardo Méndez"
+date: "2024-01-23"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, results = "hide", message = FALSE, warning = FALSE)
+```
+
+## Models in the academic discussion
+
+
+```{r loads-data.table}
+load("/home/takuan/Documents/PCL-Paper-tesis/Data Creation/tabla_pclr.RData") 
+```
+
+
+```{r tabla_items, results = "asis", out.width="50%", fig.align="center", fig.show="hold"}
+library(kableExtra)
+library(tidyverse)
+
+
+table_pclr %>% kbl(digits = 3,
+                 na_string = "",
+                format = "latex",
+            align = "l",
+    booktabs = TRUE,
+    longtable = TRUE) %>% kable_styling(font_size = 9) %>% row_spec(1, font_size = 10, bold = TRUE, italic = TRUE, align = "c") %>% 
+                       row_spec(6, font_size = 10, bold = TRUE, italic = TRUE, align = "c") %>% add_header_above(c("Ítems de la escala PCL-R" = 2), bold = TRUE) %>%
+  #add_footnote(c("Nota: Excluye variables 11 y 17.")) 
+  footnote(general_title = "*Nota: Excluye Variables 11 y 17.", 
+           footnote_as_chunk = TRUE,
+           fixed_small_size	= TRUE,
+           threeparttable = TRUE,
+           general = "")
+
+```
+
+
+```{r oldtable, eval = FALSE }
+#tabla_items, results = "asis", out.width="50%", fig.align="center", fig.show="hold"}
+#library(kableExtra)
+#library(tidyverse)
+#table_pclr %>% kbl %>% row_spec(1, color = spec_color(c("red", "green")))
+#tabla <- table_pclr %>% kbl (format= "latex")%>% row_spec(1, font_size = 10, bold = TRUE, italic = TRUE, align = "c") %>% 
+#                       row_spec(6, font_size = 10, bold = TRUE, italic = TRUE, align = "c") %>%
+#  kable_classic(full_width = F, html_font = "Cambria")  %>% add_header_above(c("__Ítems de la escala PCL-R__" = 2)) %>% add_footnote(c("_Nota: Excluye variables 11 y 17._")) 
+
+
+```
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+load("/home/kroxa/Documents/pclr_ago/latent_figures.RData")
+# Mismos colores
+colores.viridis <- viridisLite::turbo(10)[c(9,5,3,1)]
+rep_str[which(rep_str %>% names() == "Interpersonal")] <- colores.viridis[1]#"#F04A00" 
+rep_str[which(rep_str %>% names() == "Affective")] <- colores.viridis[2]#"#006400"
+rep_str[which(rep_str %>% names() == "Lifestyle")] <- colores.viridis[3]#"#008B8B"
+rep_str[which(rep_str %>% names() == "Antisocial")] <- colores.viridis[4]#"#8B008B"
+rep_str[8:length((rep_str))] <- "white"
+
+```
+
+
+
+
+
+```{r plot.latent.1, fig.show="hold", out.width= "50%"}
+#agnostic  for version
+# sobra 1 modelo de la 2f2f
+library(igraph)
+library(stringr)
+
+for (i in 
+     c(
+       which(grepl('old2f.figure', ls(pattern = ".figure"), ignore.case ="True")),
+        which(grepl('three.tests.figure', ls(pattern = ".figure"), ignore.case ="True"))
+      
+)
+     
+     ){
+  set.seed(senzu[i])
+  par(mar=c(0,1,0,1)+.09) # increase figure area, decrease blank spaces
+  plot( get(ls(pattern = ".figure")[i]),
+      vertex.shape = gsub( "FALSE", "circle", # those not starting with V. are circles (latent construct)
+                        gsub("TRUE", "none", # empirical variables are erased
+                          as.character(str_starts(get.vertex.attribute
+                                        (get(ls(pattern = ".figure")[i]),"name"), "V.", negate = FALSE)))),
+      vertex.color =  adjustcolor(gsub("V.+", "white",
+                            str_replace_all(V(get(ls(pattern = ".figure")[i]))$name, rep_str)       
+                            ), alpha.f = 0.7),
+      vertex.size = 25,
+      vertex.label.color = "black",
+      vertex.label.cex = 1,
+      edge.arrow.size = 1
+  )
+}
+
+```
+
+
+
+
+```{r plot.latent.2, fig.show="hold", out.width= "50%"}
+#agnostic  for version
+# sobra 1 modelo de la 2f2f
+library(igraph)
+library(stringr)
+
+for (i in 
+     c(
+       which(grepl('chal.figure', ls(pattern = ".figure"), ignore.case ="True")),
+       which(grepl('four.corr.figure', ls(pattern = ".figure"), ignore.case ="True"))
+      
+)
+     
+     ){
+  set.seed(senzu[i])
+  par(mar=c(0,0.5,0,0.5)+.09) # increase figure area, decrease blank spaces
+  plot( get(ls(pattern = ".figure")[i]),
+      vertex.shape = gsub( "FALSE", "circle", # those not starting with V. are circles (latent construct)
+                        gsub("TRUE", "none", # empirical variables are erased
+                          as.character(str_starts(get.vertex.attribute
+                                        (get(ls(pattern = ".figure")[i]),"name"), "V.", negate = FALSE)))),
+      vertex.color =  adjustcolor(gsub("V.+", "white",
+                            str_replace_all(V(get(ls(pattern = ".figure")[i]))$name, rep_str)       
+                            ), alpha.f = 0.7),
+      vertex.size = 25,
+      vertex.label.color = "black",
+      vertex.label.cex = 1,
+      edge.arrow.size = 1
+  )
+}
+
+```
+
+
+
+```{r plot.latent.3, fig.show="hold", out.width= "50%"}
+#agnostic  for version
+# sobra 1 modelo de la 2f2f
+library(igraph)
+library(stringr)
+
+for (i in 
+     c(
+        which(grepl('four.hie.figure', ls(pattern = ".figure"), ignore.case ="True")),
+       which(grepl('twof4f.figure', ls(pattern = ".figure"), ignore.case ="True"))
+      
+)
+     
+     ){
+  set.seed(senzu[i])
+  par(mar=c(0,0.5,0,0.5)+.09) # increase figure area, decrease blank spaces
+  plot( get(ls(pattern = ".figure")[i]),
+      vertex.shape = gsub( "FALSE", "circle", # those not starting with V. are circles (latent construct)
+                        gsub("TRUE", "none", # empirical variables are erased
+                          as.character(str_starts(get.vertex.attribute
+                                        (get(ls(pattern = ".figure")[i]),"name"), "V.", negate = FALSE)))),
+      vertex.color =  adjustcolor(gsub("V.+", "white",
+                            str_replace_all(V(get(ls(pattern = ".figure")[i]))$name, rep_str)       
+                            ), alpha.f = 0.7),
+      vertex.size = 25,
+      vertex.label.color = "black",
+      vertex.label.cex = 1,
+      edge.arrow.size = 1
+  )
+}
+
+```
+
+
+## booEGA & Networks
+
+```{r loads-data}
+rm(list=ls())
+load("/home/takuan/Documents/PCL-Paper-tesis/Data Creation/pclr_bEGA_data.RData")
+```
+
+```{r igraph-custom-shapes-and-more, echo = FALSE, message= FALSE, results='hide'}
+#rm(list=ls())
+# Loads created data (bootstraps + more)
+#load("/home/takuan/Documents/PCL-Paper-tesis/Data Creation/pclr_bEGA_data.RData")
+
+
+
+
+# Igraph custom figures
+
+# Adapted from https://igraph.org/r/doc/shapes.html
+
+#groundhog::groundhog.library(igraph, date = replication.date)
+library("igraph")
+
+
+# all vertex shapes, minus "raster", that might not be available
+shapes <- setdiff(shapes(), "")
+g <- make_ring(length(shapes))
+set.seed(42)
+
+# add new vertex shape, plot nothing with no clipping
+add_shape("nil")
+
+# triangle vertex shape
+mytriangle <- function(coords, v=NULL, params) {
+  vertex.color <- params("vertex", "color")
+  if (length(vertex.color) != 1 && !is.null(v)) {
+    vertex.color <- vertex.color[v]
+  }
+  vertex.size <- 1/200 * params("vertex", "size")
+  if (length(vertex.size) != 1 && !is.null(v)) {
+    vertex.size <- vertex.size[v]
+  }
+
+  symbols(x=coords[,1], y=coords[,2], bg=vertex.color,
+          stars=cbind(vertex.size, vertex.size, vertex.size),
+          add=TRUE, inches=FALSE)
+}
+# clips as a circle
+add_shape("triangle", clip=shapes("circle")$clip,
+                 plot=mytriangle)
+triangle <- add_shape("triangle", clip=shapes("circle")$clip,
+                 plot=mytriangle)
+
+
+
+# generic star vertex shape, with a parameter for number of rays
+mystar <- function(coords, v=NULL, params) {
+  vertex.color <- params("vertex", "color")
+  if (length(vertex.color) != 1 && !is.null(v)) {
+    vertex.color <- vertex.color[v]
+  }
+  vertex.size  <- 1/200 * params("vertex", "size")
+  if (length(vertex.size) != 1 && !is.null(v)) {
+    vertex.size <- vertex.size[v]
+  }
+  norays <- params("vertex", "norays")
+  if (length(norays) != 1 && !is.null(v)) {
+    norays <- norays[v]
+  }
+
+  mapply(coords[,1], coords[,2], vertex.color, vertex.size, 5,#norays,
+         FUN=function(x, y, bg, size, nor) {
+           symbols(x=x, y=y, bg=bg,
+                   stars=matrix(c(size,size/2), nrow=1, ncol=nor*2),
+                   add=TRUE, inches=FALSE)
+         })
+}
+
+# no clipping, edges will be below the vertices anyway
+add_shape("star", clip=shape_noclip,
+                 plot=mystar, parameters=list(vertex.norays=5))
+star <- add_shape("star", clip=shape_noclip,
+                 plot=mystar, parameters=list(vertex.norays=5))
+
+
+## Sun shape
+
+# generic star vertex shape, with a parameter for number of rays
+mystar <- function(coords, v=NULL, params) {
+  vertex.color <- params("vertex", "color")
+  if (length(vertex.color) != 1 && !is.null(v)) {
+    vertex.color <- vertex.color[v]
+  }
+  vertex.size  <- 1/200 * params("vertex", "size")
+  if (length(vertex.size) != 1 && !is.null(v)) {
+    vertex.size <- vertex.size[v]
+  }
+  norays <- params("vertex", "norays")
+  if (length(norays) != 1 && !is.null(v)) {
+    norays <- norays[v]
+  }
+
+  mapply(coords[,1], coords[,2], vertex.color, vertex.size, 15,#norays,
+         FUN=function(x, y, bg, size, nor) {
+           symbols(x=x, y=y, bg=bg,
+                   stars=matrix(c(size,size/2), nrow=1, ncol=nor*2),
+                   add=TRUE, inches=FALSE)
+         })
+}
+# no clipping, edges will be below the vertices anyway
+add_shape("sphere", clip=shape_noclip,
+                 plot=mystar, parameters=list(vertex.norays=15))
+
+
+
+
+
+
+### Labels and info for plots
+
+seed.typical <- c(0,1, 5,0,0,1)
+titles <- c("","Ítems en Cooke (et al. 2001; 2007)", "Ítems en Hare & Newman (2008)", 
+            "","", "Conjunto de ítems propuesto")
+titles.tipco <- c("","Ítems en Cooke (et al. 2001; 2007)", "Ítems en Hare & Newman (2008)", 
+            "","", "Conjunto de ítems propuesto")
+
+colores.viridis <- viridisLite::turbo(10)[c(9,5,3,1)]
+nombre.nodos$colores.dark2 <- nombre.nodos$colores.dark
+nombre.nodos$colores.dark[which(nombre.nodos$colores.dark2 == unique(nombre.nodos$colores.dark2)[1])] <- colores.viridis[1]#"#F04A00"
+nombre.nodos$colores.dark[which(nombre.nodos$colores.dark2 == unique(nombre.nodos$colores.dark2)[2])] <-colores.viridis[2]#"#008B8B"
+nombre.nodos$colores.dark[which(nombre.nodos$colores.dark2 == unique(nombre.nodos$colores.dark2)[3])] <- colores.viridis[3]#"#006400" #  "#8AB800"
+nombre.nodos$colores.dark[which(nombre.nodos$colores.dark2 == unique(nombre.nodos$colores.dark2)[4])] <- colores.viridis[4]#"#8B008B"
+
+
+#nombre.nodos[,c(1,3,6)]$colores.dark %>% unique
+
+```
+
+```{r hare-results, fig.show="hold", out.width= "50%"}
+
+library("corrplot")
+library(igraph)
+
+
+
+for (i in  c(3)){#,3,6)){#1: length(ls(pattern = "item.stab")) ){ 
+  
+# Typcal Graph in Igraph Plot
+  set.seed(1)#(seed.typical[i])
+  plot(
+    get(ls(pattern = "louvain")[i]),
+    get(ls(pattern = "typicalGraph_adj")[i]),
+    layout= layout_with_fr(get(ls(pattern = "typicalGraph_adj")[i])),
+    edge.width = 2.5 * ( E(get(ls(pattern = "typicalGraph_adj")[1]))$weight / max(E(get(ls(pattern = "typicalGraph_adj")[i]))$weight ) ),
+    edge.curved = TRUE,
+    vertex.size=  10*(
+      strength(get(ls(pattern = "typicalGraph_adj")[i]))  
+      / mean(strength(get(ls(pattern = "typicalGraph_adj")[i])))),  
+    vertex.label = (nombre.nodos$variable[which(nombre.nodos$fraseo %in% V(get(ls(pattern = "typicalGraph_adj")[i]))$name)]
+),
+    vertex.label.dist= 0,     
+    vertex.label.color="black",
+    vertex.shape = nombre.nodos$shape[which(nombre.nodos$fraseo %in% V(get(ls(pattern = "typicalGraph_adj")[i]))$name)],
+    main= paste0("Typical graph: ", titles[i]), #(ls(pattern = "typicalGraph_adj"))[i],
+    sub= paste0( "Modularity = ",
+                 get(ls(pattern = "_louvain")[i])$modularity),
+    vertex.label.cex=0.6,
+    asp=FALSE)
+
+
+# Item Stability
+  corrplot(
+    get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions[
+      match(
+        c(get(ls(pattern = "item.stab")[i])$plot$data$Node),
+        rownames(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions)
+      )
+    ,],
+    #datob,
+    method = 'circle',
+    col = threshold.colors(seq(0,1, by = 0.01)),
+    col.lim = c(0, 1),
+    #cl.pos = 'n', # especificar margenes para tener titulo
+    cl.pos = 'b',
+    title = paste0("Item Stability: ", titles[i]),#paste0("Item stability for ", sub(".*res_flores.", "", (ls(pattern = "item.stab")[i]))),
+    tl.col =  c(nombre.nodos$colores.dark[match(rownames(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions), nombre.nodos$fraseo)])[ match(
+        c(get(ls(pattern = "item.stab")[i])$plot$data$Node),
+        rownames(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions)
+      )]
+    
+    ,#"black",
+    is.corr = FALSE,
+    cl.length = 1 ,
+    cl.cex = 0.1,
+    #cl.offset = 0.651,
+    mar=c(0,0,1,0),
+    )
+  
+  colorlegend(
+    colbar = threshold.colors(seq(0,1, by = 0.01)),
+    labels = c(0, 0.651, 1),
+    at = c(0, 0.651, 1),
+    xlim = c(0.35, ncol(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions) +0.5), # best placing euristic
+    ylim = c(-9, 0.3),
+    vertical = FALSE,
+    #align = "r",
+    ratio.colbar = 0.1,
+    lim.segment = "auto",
+    addlabels = TRUE
+  )
+#ggsave(
+#  paste("/home/takuan/Documents/PCL-Paper-tesis/Data Creation/Figures/",
+#    sub(".*flores\\.", "", ls(pattern = "item.stab")[i]), 
+#    "_Istab_plot.png", sep = ""),
+#  plot = my_plot, dpi = 300)
+
+}
+
+
+
+```
+
+```{r cooke-results, fig.show="hold", out.width= "50%"}
+
+library("corrplot")
+library(igraph)
+
+
+
+for (i in  c(2)){#,3,6)){#1: length(ls(pattern = "item.stab")) ){ 
+  
+# Typcal Graph in Igraph Plot
+  set.seed(10)#(9)#(seed.typical[i])
+  plot(
+    get(ls(pattern = "louvain")[i]),
+    get(ls(pattern = "typicalGraph_adj")[i]),
+    layout= layout_with_fr(get(ls(pattern = "typicalGraph_adj")[i])),
+    edge.width = 2.5 * ( E(get(ls(pattern = "typicalGraph_adj")[1]))$weight / max(E(get(ls(pattern = "typicalGraph_adj")[i]))$weight ) ),
+    edge.curved = TRUE,
+    vertex.size=  10*(
+      strength(get(ls(pattern = "typicalGraph_adj")[i]))  
+      / mean(strength(get(ls(pattern = "typicalGraph_adj")[i])))),  
+    vertex.label = (nombre.nodos$variable[which(nombre.nodos$fraseo %in% V(get(ls(pattern = "typicalGraph_adj")[i]))$name)]
+),
+    vertex.label.dist= 0,     
+    vertex.label.color="black",
+    vertex.shape = nombre.nodos$shape[which(nombre.nodos$fraseo %in% V(get(ls(pattern = "typicalGraph_adj")[i]))$name)],
+    main= paste0("Typical graph: ", titles[i]), #(ls(pattern = "typicalGraph_adj"))[i],
+    sub= paste0( "Modularity = ",
+                 get(ls(pattern = "_louvain")[i])$modularity),
+    vertex.label.cex=0.6,
+    asp=FALSE)
+
+
+# Item Stability
+  corrplot(
+    get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions[
+      match(
+        c(get(ls(pattern = "item.stab")[i])$plot$data$Node),
+        rownames(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions)
+      )
+    ,],
+    #datob,
+    method = 'circle',
+    col = threshold.colors(seq(0,1, by = 0.01)),
+    col.lim = c(0, 1),
+    #cl.pos = 'n', # especificar margenes para tener titulo
+    cl.pos = 'b',
+    title = paste0("Item Stability: ", titles[i]),#paste0("Item stability for ", sub(".*res_flores.", "", (ls(pattern = "item.stab")[i]))),
+    tl.col =  c(nombre.nodos$colores.dark[match(rownames(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions), nombre.nodos$fraseo)])[ match(
+        c(get(ls(pattern = "item.stab")[i])$plot$data$Node),
+        rownames(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions)
+      )]
+    
+    ,#"black",
+    is.corr = FALSE,
+    cl.length = 1 ,
+    cl.cex = 0.1,
+    #cl.offset = 0.651,
+    mar=c(0,0,1,0),
+    )
+  
+  colorlegend(
+    colbar = threshold.colors(seq(0,1, by = 0.01)),
+    labels = c(0, 0.651, 1),
+    at = c(0, 0.651, 1),
+    xlim = c(0.35, ncol(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions) +0.5), # best placing euristic
+    ylim = c(-9, 0.3),
+    vertical = FALSE,
+    #align = "r",
+    ratio.colbar = 0.1,
+    lim.segment = "auto",
+    addlabels = TRUE
+  )
+#ggsave(
+#  paste("/home/takuan/Documents/PCL-Paper-tesis/Data Creation/Figures/",
+#    sub(".*flores\\.", "", ls(pattern = "item.stab")[i]), 
+#    "_Istab_plot.png", sep = ""),
+#  plot = my_plot, dpi = 300)
+
+}
+
+
+
+```
+
+```{r my-results, fig.show="hold", out.width= "50%"}
+
+library("corrplot")
+library(igraph)
+
+
+
+for (i in  c(6)){#,3,6)){#1: length(ls(pattern = "item.stab")) ){ 
+  seed.typical
+# Typcal Graph in Igraph Plot
+  set.seed(2)#(seed.typical[i])
+  plot(
+    get(ls(pattern = "louvain")[i]),
+    get(ls(pattern = "typicalGraph_adj")[i]),
+    layout= layout_with_fr(get(ls(pattern = "typicalGraph_adj")[i])),
+    edge.width = 2.5 * ( E(get(ls(pattern = "typicalGraph_adj")[1]))$weight / max(E(get(ls(pattern = "typicalGraph_adj")[i]))$weight ) ),
+    edge.curved = TRUE,
+    vertex.size=  10*(
+      strength(get(ls(pattern = "typicalGraph_adj")[i]))  
+      / mean(strength(get(ls(pattern = "typicalGraph_adj")[i])))),  
+    vertex.label = (nombre.nodos$variable[which(nombre.nodos$fraseo %in% V(get(ls(pattern = "typicalGraph_adj")[i]))$name)]
+),
+    vertex.label.dist= 0,     
+    vertex.label.color="black",
+    vertex.shape = nombre.nodos$shape[which(nombre.nodos$fraseo %in% V(get(ls(pattern = "typicalGraph_adj")[i]))$name)],
+    main= paste0("Typical graph: ", titles[i]), #(ls(pattern = "typicalGraph_adj"))[i],
+    sub= paste0( "Modularity = ",
+              get(ls(pattern = "_louvain")[i])$modularity),
+    vertex.label.cex=0.6,
+    asp=FALSE)
+
+
+# Item Stability
+  corrplot(
+    get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions[
+      match(
+        c(get(ls(pattern = "item.stab")[i])$plot$data$Node),
+        rownames(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions)
+      )
+    ,],
+    #datob,
+    method = 'circle',
+    col = threshold.colors(seq(0,1, by = 0.01)),
+    col.lim = c(0, 1),
+    #cl.pos = 'n', # especificar margenes para tener titulo
+    cl.pos = 'b',
+    title = paste0("Item Stability: ", titles[i]),#paste0("Item stability for ", sub(".*res_flores.", "", (ls(pattern = "item.stab")[i]))),
+    tl.col =  c(nombre.nodos$colores.dark[match(rownames(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions), nombre.nodos$fraseo)])[ match(
+        c(get(ls(pattern = "item.stab")[i])$plot$data$Node),
+        rownames(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions)
+      )]
+    
+    ,#"black",
+    is.corr = FALSE,
+    cl.length = 1 ,
+    cl.cex = 0.1,
+    #cl.offset = 0.651,
+    mar=c(0,0,1,0),
+    )
+  
+  colorlegend(
+    colbar = threshold.colors(seq(0,1, by = 0.01)),
+    labels = c(0, 0.651, 1),
+    at = c(0, 0.651, 1),
+    xlim = c(0.35, ncol(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions) +0.5), # best placing euristic
+    ylim = c(-9, 0.3),
+    vertical = FALSE,
+    #align = "r",
+    ratio.colbar = 0.1,
+    lim.segment = "auto",
+    addlabels = TRUE
+  )
+
+
+}
+
+
+
+```
+
+```{r ridges, results = "asis", out.width="70%", fig.align="center", fig.show="hold"}
+library(tidyverse)
+library(ggplot2)
+library(ggridges)
+library(dplyr)
+library(kableExtra)
+freq.hare <- data.frame(bootEGA.res_flores.hare$boot.ndim)
+freq.hare$Model <- rep("1. Oficial", nrow(freq.hare))
+colnames(freq.hare)[1] <- "N.Dim"
+
+freq.cooke <- data.frame(bootEGA.res_flores.cooke$boot.ndim)
+freq.cooke$Model <- rep("2. Desafiante", nrow(freq.cooke))
+colnames(freq.cooke)[1] <- "N.Dim"
+
+freq.mine <- data.frame(bootEGA.res_flores.mine_c13y18y12$boot.ndim)
+freq.mine$Model <- rep("3. Propuesto", nrow(freq.mine))
+colnames(freq.mine)[1] <- "N.Dim"
+
+frecuencias <- rbind(freq.hare, freq.cooke, freq.mine)
+
+frecuencias <- rbind(freq.hare, freq.cooke, freq.mine)
+
+
+
+ggplot(frecuencias, aes(x = N.Dim, y = fct_rev(Model), fill = 0.5 - abs(0.5 - stat(ecdf)))) +
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE, scale = 1) +
+  scale_fill_viridis_b(name = "Prob. cola", direction = 1) +
+  scale_x_continuous(breaks = c(1,2,3,4,5,6,7,8)) +
+  theme_ridges() + labs(y = "", x = "Número de dimensiones")
+```
+
+```{r crea.tabla.ridges}
+# (In Ridges, maximum value for each model could be useful (proportion of mode solution))
+
+
+
+
+Model.vars <- c("1. Oficial", "2. Desafiante", "3. Propuesto")
+
+tabla <- 
+  cbind(Model.vars,
+    rbind(
+      get(ls(pattern = "bootEGA")[3])$summary.table,
+      get(ls(pattern = "bootEGA")[2])$summary.table,
+      get(ls(pattern = "bootEGA")[6])$summary.table
+    )) 
+tabla <- tabla[,c(1,4,5,6,7)]
+rownames(tabla) <- NULL
+colnames(tabla) <- c("Modelo", "Error Estándar", "I.Confianza", "IC.min", "IC.max")
+tabla[,-c(1)] <- tabla[,-c(1)] %>% round(digits = 3)
+
+
+```
+
+
+```{r tabla.ridges, results = "asis", out.width="50%", fig.align="center", fig.show="hold"}
+#           general = "")
+tabla %>% kbl(digits = 3,
+                 na_string = "",
+                format = "latex",
+            align = "l",
+    booktabs = TRUE,
+    longtable = FALSE,
+    full_width = FALSE) %>% kable_styling(font_size = 9) %>% 
+  add_header_above(c("Descriptivos: Número de soluciones a través de bootstraps" = 5), bold = TRUE)
+
+```
+
+
+
+## CFA
+
+
+```{r}
+rm(list =ls())
+load("/home/takuan/Documents/tesis_finales/cfa_results.Rdata")
+```
+
+
+```{r tabla.plus.aic}
+tabla.dwls[c("aic", "bic")] <- NULL
+tabla.dwls
+
+
+info.index <- 
+rbind(
+tabla.ML[c(1,2),c("aic", "bic")] %>% round(digits = 0),
+c(NA, NA),
+tabla.ML[c(3:5),c("aic", "bic")] %>% round(digits = 0)
+)
+
+
+tabla.dwls <- cbind(
+  tabla.dwls,
+info.index)
+
+tabla.dwls <- 
+tabla.dwls[c("cfi", "nnfi", "rmsea", "srmr", "aic", "bic")]
+colnames(tabla.dwls)[c(5,6)] <- c("aic (ML)", "bic (ML)")
+
+tabla.fit <- tabla.dwls 
+```
+
+
+
+
+
+
+
+
+```{r tabla.fit, results = "asis", out.width="50%", fig.align="center", fig.show="hold"}
+
+
+tabla.fit %>% kbl(digits = 3,
+                 na_string = "",
+                format = "latex",
+            align = "l",
+    booktabs = TRUE,
+    longtable = FALSE,
+    full_width = FALSE) %>% kable_styling(font_size = 9) %>% 
+  add_header_above(c("CFA: índices de ajuste1" = 5), bold = TRUE)
+  
+  
+  #kbl %>% #(caption = "Descriptivos: Número de Soluciones a través de bootstraps") %>%
+  #kable_classic(full_width = F, html_font = "Cambria") %>% add_header_above(c("__CFA: índices de ajuste__" = 7))
+```
+

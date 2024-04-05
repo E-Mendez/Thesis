@@ -1,0 +1,743 @@
+---
+title: "Chap1: Data creatiom"
+output: html_document
+date: '2022-07-05'
+---
+
+
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+
+```
+
+## Load and organizes data
+
+### Data
+
+**Flórez, Gerardo (2020)**, Comparison between the psychopathy checklist-revised and the comprehensive assessment of psychopathic personality in a representative sample of Spanish prison inmates, Dryad, Dataset, <https://doi.org/10.5061/dryad.tb2rbnzwt>
+
+
+
+```{r}
+rm(list =ls())
+library("psychTools")
+library("EGAnet")
+set.seed(6724)
+
+```
+
+
+
+
+```{r loads-floresDB}
+#Flórez, Gerardo (2020), Comparison between the psychopathy checklist-revised and the comprehensive assessment of psychopathic personality in a representative sample of Spanish prison inmates, Dryad, Dataset, https://doi.org/10.5061/dryad.tb2rbnzwt
+
+# In the field of psychopathy, there is an ongoing debate about the core traits that define the disorder, and that therefore must be present to some extent in all psychopaths. The main controversy of this debate concerns criminal behaviour, as some researchers consider it a defining trait, while others disagree. Using a representative sample of 204 Spanish convicted inmates incarcerated at the Pereiro de Aguiar Penitentiary in Ourense, Spain, we tested two competing models, the Psychopathy Checklist-Revised (PCL-R), which includes criminal behaviour items, versus the Comprehensive Assessment of Psychopathic Personality (CAPP), which does not. We used two different PCL-R models, one that includes criminal items and another that does not. PCL-R factors, facets, and testlets from both models and CAPP dimensions were correlated and compared. Two different PCL-R cut-off scores, 25 or more and 30 or more, were used for the analysis. Overall, a strong correlation was found between PCL-R and CAPP scores in the whole sample, but as scores increased and inmates became more psychopathic, the correlations weakened. All these data indicate that psychopathy, understood to mean having high scores on the PCL-R and CAPP, is a multidimensional entity, and inmates can develop the disorder and then receive the diagnosis through different dimensions. The CAPP domains showed better correlations when compared with the PCL-R factors from both models, showing that an instrument for the assessment of psychopathy without a criminal dimension is valuable for clinical assessment and research purposes. 
+
+# 204 casos, tiene en sheet 1 uso de drogas; en la 2 tiene PCL-R y CAAP en los mismos casos.
+
+
+#groundhog::groundhog.library("readxl", date = replication.date, tolerate.R.version='4.0.4')
+#groundhog::groundhog.library("stringr", date = replication.date, tolerate.R.version='4.0.4')
+#groundhog::groundhog.library("qgraph", date = replication.date, tolerate.R.version='4.0.4')
+
+set.seed(6724)
+
+library(readxl)
+library(stringr)
+library(qgraph)
+
+
+base <- read_excel("/home/kroxa/Documents/bases_pcl-r/Database_Dryad2.xls", col_names = TRUE, sheet = 2 )
+colnames(base)
+base_flores <- base[, c(2:21)]
+base_flores[base_flores == 5] <- NA # hay un valor = 5
+
+
+
+colnames(base_flores)
+
+colnames(base_flores) <- str_replace(colnames(base_flores), "PCL-R ", "V")
+
+n_flores <- as.numeric(nrow(base_flores))
+```
+
+
+
+
+The PCL-R scale is composed of 20 items. Officially it is composed of $4$ undrelying factors: Interpersonal, Affective, Lifestyle and Antisocial. The last one being contested in the current debate.
+
+```{r item-wordings-and-colors}
+
+nombre.nodos <- c("Glibness/superficial charm",	
+"Grandiose self-worth",	
+"Need for stimulation",
+"Pathological lying",	
+"Conning/manipulative",	
+"Lack of remorse",
+"Shallow affect",
+"Lack of empathy",
+"Parasitic lifestyle",
+"Poor behavioral controls",
+"Promiscuous sexual behavior",
+"Early behavioral problems",
+"Lack of goals",
+"Impulsivity",
+"Irresponsibility",
+"Will not accept responsibility",
+"Many short-term relationships",
+"Juvenile delinquency",
+"Revocation of conditional release",
+"Criminal versatility"
+)
+
+nombre.nodos <- data.frame(
+cbind(paste0("V", as.character(1:20)) ,paste0(paste0("V.", as.character(1:20), ": "), nombre.nodos) 
+))
+
+# factor en la literatura
+nombre.nodos$factor <- NA
+nombre.nodos[c(1,2,4,5),]$factor <- "Interpersonal"
+nombre.nodos[c(6,7,8,16),]$factor <- "Affective"
+nombre.nodos[c(3,9,13,14,15),]$factor <- "Lifestyle"
+nombre.nodos[c(10,12,18,19,20),]$factor <- "Antisocial"
+nombre.nodos[c(11,17),]$factor <- "Sexual (excluded)"
+
+# Color de los nodos x factor en la literatura
+nombre.nodos$color <- NA
+nombre.nodos$color[which(nombre.nodos$factor == "Interpersonal")] <- "cyan"
+nombre.nodos$color[which(nombre.nodos$factor == "Affective")] <- "magenta"
+nombre.nodos$color[which(nombre.nodos$factor == "Lifestyle")] <- "orange"
+nombre.nodos$color[which(nombre.nodos$factor == "Antisocial")] <- "chartreuse"
+nombre.nodos$color[which(nombre.nodos$factor == "Sexual (excluded)")] <- "gray"
+
+# forma (shape) de los nodos
+
+nombre.nodos$shape <- NA
+nombre.nodos$shape[which(nombre.nodos$factor == "Interpersonal")] <- "circle"
+nombre.nodos$shape[which(nombre.nodos$factor == "Affective")] <- "square"
+nombre.nodos$shape[which(nombre.nodos$factor == "Lifestyle")] <- "triangle"
+nombre.nodos$shape[which(nombre.nodos$factor == "Antisocial")] <- "star"
+nombre.nodos$shape[which(nombre.nodos$factor == "Sexual (excluded)")] <- "sphere"
+
+colnames(nombre.nodos) <- c("variable",     "fraseo"  ,   "factor", "color", "shape")
+
+
+
+colores.dark <- (c("#008B8B", "#F04A00", "#8B008B", "#8AB800", "black"))
+
+nombre.nodos$colores.dark <- nombre.nodos$color
+
+# transform each color into its gothic lolita outfit
+for (i in 1:length(colores.dark)){
+nombre.nodos$colores.dark[
+which(nombre.nodos$colores.dark ==
+unique(nombre.nodos$color)[i])] <- colores.dark[i]
+}
+
+
+# Cambia nombres de V1... a fraseos
+colnames(base_flores) <- nombre.nodos$fraseo
+
+#item-factor}
+#library("bootnet")
+
+
+fact1 <-c(1,2,4,5)  # Factor 1
+fact2 <- c(6,7,8,16)     # Factor 2
+fact3 <- c(3,9,13,14,15) # factor 3
+fact4 <- c(10,12,18,19,20) #Antisocial/criminal
+excluded <- c(11,17)
+```
+
+### Creates datasets based on item selection choices of both teams
+
+```{r creates-datasets}
+
+# Hare's variable set
+base_flores.hare <- base_flores[,sort(c(fact1, fact2, fact3, fact4))]
+
+# Cooke's Variable set
+base_flores.cooke <- base_flores[,sort(c(fact1, fact2, fact3))]
+
+
+# New Models
+
+## Elegimos variable sets incrementalmente en función de su consistencia en dimensiones. V10 --> V18 --V12 
+base_flores.mine_a13 <- base_flores[,sort(c(fact1, fact2, fact3,10))] # + v10 poor behavioral controls
+base_flores.mine_b13y18 <- base_flores[,sort(c(fact1, fact2, fact3,10,18))] # + V18: Juvenile Delinquency
+base_flores.mine_c13y18y12 <- base_flores[,sort(c(fact1, fact2, fact3,10,18,12))] # +V12: Early Behavioral Problems
+
+
+# Objetos creados no se donde...
+rm (list = as.character((ls(pattern = "mine1"))))
+```
+
+
+### Methodological decisions.
+
+-   **Polychoric correlations were used.** They are used in proposals involving latent variables in general, and in the PCL-R methodological discussion in particular. A polychoric correlation matrix is provided in [@cooke2007understanding], which could be used in the future to extend the results of this analisys to other datasets. A parsimonious alternative in the present methodology would be the Spearman rank correlation. It has similar (better) performance as imput for EBICglasso in network estimation [@who? (I red it but cannot find it now!)].
+
+-   Louvain community detection algorythm. Has the best performance in recovering underlying structures in simmulation studies. On the other hand, its grouping criteria (iterative modularity optimization) explicitly brings together closely related nodes (variables), and gives densely connected clusters which are at the same time apart from each other. It is concordant with an intuitive approach of grouping. That property can be visually inspected in network plots.
+
+## BootEGA: bootstrapped assestment of quality in estimated dimensions.
+
+
+Resampling takes considerably more time ()
+
+
+
+```{r}
+rm (list = as.character((ls(pattern = "mine1")))) # objetos que no sé dónde/pq se crean
+```
+
+## Resampling bootegas 10000 (ten thousand bootdtrapped samples)
+
+```{r BootEGA-resampling}
+#?bootEGA
+
+for (i in 1: length(ls(pattern = "base_flores"))){
+  assign(
+    str_replace(ls(pattern = "base_flores")[i], "base_", "bootEGA.res_"),
+              bootEGA(get(ls(pattern = "base_flores")[i]),
+                        iter = 2500,#2500,
+                        seed = 115,
+                        type = "resampling", #"resampling",
+                        corr = "cor_auto", # "spearman", # cor_auto
+                        model = "glasso",
+                        algorithm = "louvain",
+                        plot.typicalStructure = FALSE,
+                        ncores = parallel::detectCores()
+                        )
+  )}
+
+```
+
+## Figures
+
+```{r igraph-custom-shapes}
+# Adapted from https://igraph.org/r/doc/shapes.html
+
+#groundhog::groundhog.library(igraph, date = replication.date)
+library("igraph")
+
+
+# all vertex shapes, minus "raster", that might not be available
+shapes <- setdiff(shapes(), "")
+g <- make_ring(length(shapes))
+set.seed(42)
+
+# add new vertex shape, plot nothing with no clipping
+add_shape("nil")
+
+# triangle vertex shape
+mytriangle <- function(coords, v=NULL, params) {
+  vertex.color <- params("vertex", "color")
+  if (length(vertex.color) != 1 && !is.null(v)) {
+    vertex.color <- vertex.color[v]
+  }
+  vertex.size <- 1/200 * params("vertex", "size")
+  if (length(vertex.size) != 1 && !is.null(v)) {
+    vertex.size <- vertex.size[v]
+  }
+
+  symbols(x=coords[,1], y=coords[,2], bg=vertex.color,
+          stars=cbind(vertex.size, vertex.size, vertex.size),
+          add=TRUE, inches=FALSE)
+}
+# clips as a circle
+add_shape("triangle", clip=shapes("circle")$clip,
+                 plot=mytriangle)
+
+# generic star vertex shape, with a parameter for number of rays
+mystar <- function(coords, v=NULL, params) {
+  vertex.color <- params("vertex", "color")
+  if (length(vertex.color) != 1 && !is.null(v)) {
+    vertex.color <- vertex.color[v]
+  }
+  vertex.size  <- 1/200 * params("vertex", "size")
+  if (length(vertex.size) != 1 && !is.null(v)) {
+    vertex.size <- vertex.size[v]
+  }
+  norays <- params("vertex", "norays")
+  if (length(norays) != 1 && !is.null(v)) {
+    norays <- norays[v]
+  }
+
+  mapply(coords[,1], coords[,2], vertex.color, vertex.size, 5,#norays,
+         FUN=function(x, y, bg, size, nor) {
+           symbols(x=x, y=y, bg=bg,
+                   stars=matrix(c(size,size/2), nrow=1, ncol=nor*2),
+                   add=TRUE, inches=FALSE)
+         })
+}
+
+# no clipping, edges will be below the vertices anyway
+add_shape("star", clip=shape_noclip,
+                 plot=mystar, parameters=list(vertex.norays=5))
+
+
+## Sun shape
+
+# generic star vertex shape, with a parameter for number of rays
+mystar <- function(coords, v=NULL, params) {
+  vertex.color <- params("vertex", "color")
+  if (length(vertex.color) != 1 && !is.null(v)) {
+    vertex.color <- vertex.color[v]
+  }
+  vertex.size  <- 1/200 * params("vertex", "size")
+  if (length(vertex.size) != 1 && !is.null(v)) {
+    vertex.size <- vertex.size[v]
+  }
+  norays <- params("vertex", "norays")
+  if (length(norays) != 1 && !is.null(v)) {
+    norays <- norays[v]
+  }
+
+  mapply(coords[,1], coords[,2], vertex.color, vertex.size, 15,#norays,
+         FUN=function(x, y, bg, size, nor) {
+           symbols(x=x, y=y, bg=bg,
+                   stars=matrix(c(size,size/2), nrow=1, ncol=nor*2),
+                   add=TRUE, inches=FALSE)
+         })
+}
+# no clipping, edges will be below the vertices anyway
+add_shape("sphere", clip=shape_noclip,
+                 plot=mystar, parameters=list(vertex.norays=15))
+
+
+```
+
+### Creates igraph objects to plot
+
+
+```{r translates-to-igraph}
+
+# Adjacencies
+
+for (i in 1: length(ls(pattern = "bootEGA"))){
+  ## EGA results
+    assign(
+    str_replace(ls(pattern = "bootEGA")[i], "bootEGA", "EGA_adj"),
+              graph_from_adjacency_matrix(
+                abs(
+                (get( ls(pattern = "bootEGA")[i]))$EGA$network), 
+                                 weighted = TRUE,
+                              mode = "undirected"
+                              ))
+  ## Bootstrapped "typical" (median) graphs
+    assign(
+    str_replace(ls(pattern = "bootEGA")[i], "bootEGA", "typicalGraph_adj"),
+              graph_from_adjacency_matrix(
+                abs(
+                (get( ls(pattern = "bootEGA")[i]))$typicalGraph$graph), 
+                                 weighted = TRUE,
+                              mode = "undirected"
+                              ))
+}
+
+# Make custom clusters as Igraph community objects 
+
+## Empirical EGA
+for (i in 1: length(ls(pattern = "EGA_adj"))){
+  assign(
+    str_replace(ls(pattern = "EGA_adj")[i], "_adj", "_louvain"),
+        make_clusters( #function
+          get(ls(pattern = "EGA_adj")[i]),
+          membership = (get( ls(pattern = "bootEGA")[i]))$EGA$wc,
+          algorithm = "Louvain",
+          merges = NULL,
+          modularity = TRUE))
+}
+
+## typicalGraphs
+for (i in 1: length(ls(pattern = "typicalGraph_adj"))){
+  assign(
+    str_replace(ls(pattern = "typicalGraph_adj")[i], "_adj", "_louvain"),
+        make_clusters( #function
+          get(ls(pattern = "typicalGraph_adj")[i]),
+          membership = get(ls(pattern = "bootEGA")[i])$typicalGraph$wc, 
+          algorithm = "Louvain",
+          merges = NULL,
+          modularity = TRUE))
+}
+
+```
+
+
+
+## Igraph plots
+
+The Fruchterman & Reinglod force-directed algorithm was chosen. It produces network visualizations where more strongly connected verices are clustered together. At the same time, it reduces edges crossing each other, facilitating visual inspection. Akin to `spring`, the default settings in `(library)qgraph` (most widely used tool for network visualization in the network psychometrics literature).
+
+`igraph::plot` allows for further customization of visualizations. Vertex shapes represent latent variables to which items belong in the PCL-R discussion. Color and the encircling area around them represent the community in which the Louvain algorithm placed them. An encirled area composed of vertex of the same shape (and color) implies concordance between empirical results and the academic discussion.
+
+
+
+```{r}
+
+
+for (i in 1: length(ls(pattern = "_adj"))){
+          plot(
+            get(ls(pattern = "louvain")[i]),
+            get(ls(pattern = "_adj")[i]),
+            layout= layout_with_fr(get(ls(pattern = "_adj")[i])),
+            edge.width= ( E(get(ls(pattern = "_adj")[1]))$weight / max(E(get(ls(pattern = "_adj")[i]))$weight ) ),
+            edge.curved = TRUE,
+            vertex.size=  10*(
+                strength(get(ls(pattern = "_adj")[i]))  
+                  / mean(strength(get(ls(pattern = "_adj")[i])))),  
+            vertex.label = nombre.nodos$fraseo[which(nombre.nodos$fraseo %in% V(get(ls(pattern = "_adj")[i]))$name)],
+            vertex.label.dist=-0.4,     
+            vertex.label.color="black",
+            vertex.shape = nombre.nodos$shape[which(nombre.nodos$fraseo %in% V(get(ls(pattern = "_adj")[i]))$name)],
+            main=(ls(pattern = "_adj"))[i],
+            sub= paste0( "Modularity = ",
+        get(ls(pattern = "_louvain")[i])$modularity),
+            vertex.label.cex=0.6,
+            asp=FALSE)
+}  
+          
+
+```
+
+
+
+## BootEGA: bootstrapped assestment of quality in estimated dimensions.
+
+#### frequency of each community solution
+
+
+```{r}
+
+for (i in 1:length (ls(pattern = "bootEGA"))){
+  print(as.character(ls(pattern = "bootEGA")[i]))
+  print(
+(get(ls(pattern = "bootEGA")[i]))$frequency
+)
+
+#  print(mode( (get(ls(pattern = "bootEGA")[i]))$frequency) )
+  }
+# Calcularle la media
+
+
+```
+
+Higlights of the tables above:
+
+-   In the whole PCL-R variable set there are 5 typically communities in the bootstrapped samples.
+
+-   Bootstrapped EBICglasso+Louvain models for the **Cooke (et al.)** variable set gives $4$ communities (factors) as the most frequent solutions. Perhaps the fourth(s) dimension/community is/are not consistently replicated across bootstrapped samples. This is inconsistent with the results from its `typicalGraph`, contained in the same R object, which reproduces the latent structure proposed by the authors($3$ commnities) . (**MUY IMPORTANTE DE RESOLVER**).
+
+-   Bootstrapped EBICglasso+Louvain models for the official variable set give the same number of latent dimensions as proposed.
+
+    -   The frequency of the 2 factor structure is $0$. The earliest oficial model [@harpur...] proposed a 2 factor solution, which was later discarded. It consisted of one personality (affective + interpersonal) and a behavioral (lifestyle + antisocial) factor. Inspired in it, the authors proposed a hierarchical 2 facet 4 factor model as the underlying latent structure of the scale. **Question:** *Are personality/Behavioral items(Factor 1 and 2 respectively) more closely related among themselves?*.
+
+```{r}
+
+for (i in 1:length (ls(pattern = "bootEGA"))){
+  print(as.character(ls(pattern = "bootEGA")[i]))
+  print( as.matrix(
+(get(ls(pattern = "bootEGA")[i]))$summary.table
+))
+}
+
+
+
+```
+
+#### Structural consistency of EGA results across bootstrapped samples
+
+dimension.stability A list containing:
+
+structural.consistency The proportion of times that each empirical EGA dimension exactly replicates across the bootEGA samples
+
+average.item.stability The average item stability in each empirical EGA dimension
+
+item.stability\
+Results from itemStability
+
+```{r Calculate-dimStab, results= "hide"}
+for (i in 1:length (ls(pattern = "bootEGA"))){
+assign(
+    str_replace( ls(pattern = "bootEGA")[i], "bootEGA", "dim.stab"),
+    dimensionStability(get(ls(pattern = "bootEGA")[i]))
+)
+}
+
+
+```
+
+#### Structural Consistency
+
+`The proportion of times that each empirical EGA dimension exactly replicates across the bootEGA samples`
+
+```{r}
+for (i in 1:length (ls(pattern = "dim.stab"))){
+ print(as.character(ls(pattern = "bootEGA")[i]))
+ print( (get(ls(pattern = "dim.stab")[i]))$dimension.stability$structural.consistency)
+    }
+
+```
+
+The community structure estimated for each variable set in the literature is not stable across bootstrapped resampling. The proposed model incormporating $3$ variables from the "chronically antisocial/criminal" factor is replicable under the same method.
+
+#### Item Stability
+
+Based on the bootEGA results, this function computes and plots the number of times an item (variable) is estimated in the same factor/dimension as originally estimated by EGA (item.replication). The output also contains each item’s replication frequency (i.e., proportion of bootstraps that an item appeared in each dimension; item.dim.rep) as well as the average network loading for each item in each dimension (item.loadings).
+
+```{r Calculate-itemStab, results= "hide"}
+for (i in 1:length (ls(pattern = "bootEGA"))){
+assign(
+    str_replace( ls(pattern = "bootEGA")[i], "bootEGA", "item.stab"),
+    itemStability(get(ls(pattern = "bootEGA")[i]))
+)
+}
+
+```
+
+
+
+```{r}
+
+for (i in 1:length (ls(pattern = "item.stab"))){
+ print(as.character(ls(pattern = "bootEGA")[i]))
+ print( (get(ls(pattern = "item.stab")[i]))$plot)
+    }
+
+```
+
+Christensen & Golino (2021) suggest a threshold of 0.695 and **0.651** for **Item Stability** in parametric and resampled bootstrapped EBICglasso models, respectivelly.
+
+##### Average item stabilitty
+
+```{r}
+for (i in 1:length (ls(pattern = "dim.stab"))){
+ print(as.character(ls(pattern = "bootEGA")[i]))
+ print( (get(ls(pattern = "dim.stab")[i]))$dimension.stability$average.item.stability)
+    }
+
+```
+
+```{r}
+for (i in 1:length (ls(pattern = "item.stab"))){
+ print(as.character(ls(pattern = "bootEGA")[i]))
+ print("Empirical Dimensions: The proportion of times each item replicated within the empirical EGA defined dimension.")
+ print( (get(ls(pattern = "item.stab")[i]))$item.stability$empirical.dimensions)
+    }
+
+```
+
+#### Mean Loadings
+
+```{r}
+for (i in 1:length (ls(pattern = "item.stab"))){
+ print(as.character(ls(pattern = "bootEGA")[i]))
+ print("Mean Loadings")
+ print( (get(ls(pattern = "item.stab")[i]))$mean.loadings)
+    }
+
+```
+
+# Itemstability$meanloadings:
+
+
+Matrix of the average standardized network loading (computed using net.loads) for each item in each dimension
+
+
+
+```{r}
+for (i in 1:length (ls(pattern = "item.stab"))){
+ print(as.character(ls(pattern = "bootEGA")[i]))
+ print("Mean Loadings")
+ print( (get(ls(pattern = "item.stab")[i]))$mean.loadings)
+    }
+
+```
+
+
+## Matrix plots
+
+Self-created visualization for assesing the quality of the proposed models
+
+
+```{r}
+
+(get(ls(pattern = "item.stab")[2]))$mean.loadings
+
+```
+
+
+
+```{r threshold-color-scale}
+library(circlize)
+
+
+# Color scale with threshold for Item Stability 
+threshold.colors <- circlize::colorRamp2(breaks = c(0, 0.01, 0.65, 0.651, 0.99 , 1),
+                  colors = c("white","darkred", "red", "lawngreen", "darkgreen", "royalblue4"),
+                  transparency = 0, space ="RGB")
+
+
+# Alignment for color legends (different for each matrix uwu)
+bar_placing_coords <- 
+    list(
+    # for 5 cols (bootstrapped dimensions)
+    list(
+    xlim = c(0.35, 5.5),
+    ylim = c(-9.8, 0.3))
+    ,  
+    # for 6 cols  
+    list(
+    xlim = c(0.35, 6.5),
+    ylim = c(-9.8, 0.3))
+    ,
+    ### I still don't have the one for 7
+    #for 7 cols
+    list(
+    xlim = c(0.35, 7.5),
+    ylim = c(-9.8, 0.3))
+    ,
+    # for 8 cols
+    list(
+    xlim = c(0.35, 8.5),
+    ylim = c(-9.8, 0.3))
+    )
+# heuristic is simpler ncol(df) +0.5
+
+```
+
+
+### Item Stability correlogram boot
+
+```{r itemStability-correlograms}
+
+library("corrplot")
+
+for (i in 1: length(ls(pattern = "item.stab")) ){ 
+
+  corrplot(
+    get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions,
+    #datob,
+    method = 'circle',
+    col = threshold.colors(seq(0,1, by = 0.01)),
+    col.lim = c(0, 1),
+    #cl.pos = 'n', # especificar margenes para tener titulo
+    cl.pos = 'b',
+    title = paste0("Item stability for ", sub(".*res_flores.", "", (ls(pattern = "item.stab")[i]))),
+    tl.col =  c(nombre.nodos$colores.dark[match(rownames(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions), nombre.nodos$fraseo)]),#"black",
+    is.corr = FALSE,
+    cl.length = 1 ,
+    cl.cex = 0.1,
+    #cl.offset = 0.651,
+    mar=c(0,0,1,0),
+    )
+  
+  colorlegend(
+    colbar = threshold.colors(seq(0,1, by = 0.01)),
+    labels = c(0, 0.651, 1),
+    at = c(0, 0.651, 1),
+    xlim = c(0.35, ncol(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions) +0.5), # best placing euristic
+    ylim = c(-9, 0.3),
+    vertical = FALSE,
+    #align = "r",
+    ratio.colbar = 0.1,
+    lim.segment = "auto",
+    addlabels = TRUE
+  )
+
+}
+
+```
+
+
+### Mean loadings correlogram
+
+
+
+```{r}
+
+
+minimos <- c()
+for (i in 1: length(ls(pattern = "item.stab"))){
+  minimos[i] <- 
+  min(get(ls(pattern = "item.stab")[i])$mean.loadings)
+}
+min(minimos)
+
+maximos <- c()
+for (i in 1: length(ls(pattern = "item.stab"))){
+  maximos[i] <- 
+  max(get(ls(pattern = "item.stab")[i])$mean.loadings)
+}
+max(maximos)
+
+
+itemStab.colors <- circlize::colorRamp2(breaks = c(min(minimos), 0, max(maximos)),
+                  colors = c("red", "white","darkgreen"),
+                  transparency = 0, space ="RGB")
+
+
+```
+
+
+
+
+
+```{r corrplots_not_work, eval= FALSE}
+for (i in 1: length(ls(pattern = "item.stab")) ){ 
+  
+  
+  corrplot(
+    get(ls(pattern = "item.stab")[i])$mean.loadings,
+    #datob,
+    method = 'circle',
+    col = itemStab.colors(seq(min(minimos),max(maximos), by = 0.01)),
+    col.lim = c(min(get(ls(pattern = "item.stab")[i])$mean.loadings), max(get(ls(pattern = "item.stab")[i])$mean.loadings)),
+    #cl.pos = 'n', # especificar margenes para tener titulo
+    cl.pos = 'b',
+    title = paste0("Stadarized mean network loadings for ", sub(".*res_flores.", "", (ls(pattern = "item.stab")[i]))),
+    tl.col =  c(nombre.nodos$colores.dark[match(rownames(get(ls(pattern = "item.stab")[i])$mean.loadings), nombre.nodos$fraseo)]),#"black",
+    is.corr = FALSE,
+    cl.length = 1 ,
+    cl.cex = 0.1,
+    #cl.offset = 0.651,
+    mar=c(0,0,1,0),
+  )
+
+  colorlegend(
+    colbar = itemStab.colors(seq(min(minimos),max(maximos), by = 0.01)),
+    labels = c(min(minimos), max(maximos)),
+    at = c(0, 1),
+    xlim = c(0.35, ncol(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions) +0.5), # best X placing heuristic = ncol(mat) +0.5
+    ylim = c(-9, 0.3),
+    vertical = FALSE,
+    #align = "r",
+    ratio.colbar = 0.1,
+    lim.segment = "auto",
+    addlabels = TRUE
+  )
+
+}
+
+```
+
+
+
+
+
+### Save all objects created to be loaded in the future
+
+```{r save.session, eval = FALSE}
+save.image(file = "/home/takuan/Documents/PCL-Paper-tesis/Data Creation/pclr_bEGA_data.RData")
+
+```
+
+
+
+
+
+

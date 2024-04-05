@@ -1,0 +1,466 @@
+---
+title: "Replication of Understanding the structure of the Psychopathy Checklist – Revised. An exploration of methodological confusion. By Cooke et al (2007)"
+author: "EM"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Load libraries
+
+We will use the Lavaan R package
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, results = "hide")
+
+```
+
+```{r}
+rm(list=ls())
+```
+
+
+```{r}
+#load libraries
+library(foreign) 
+library(lavaan)
+
+```
+
+## Load data: correlation matrix
+
+
+
+
+```{r loads-handles-floresDB}
+#Flórez, Gerardo (2020), Comparison between the psychopathy checklist-revised and the comprehensive assessment of psychopathic personality in a representative sample of Spanish prison inmates, Dryad, Dataset, https://doi.org/10.5061/dryad.tb2rbnzwt
+
+# In the field of psychopathy, there is an ongoing debate about the core traits that define the disorder, and that therefore must be present to some extent in all psychopaths. The main controversy of this debate concerns criminal behaviour, as some researchers consider it a defining trait, while others disagree. Using a representative sample of 204 Spanish convicted inmates incarcerated at the Pereiro de Aguiar Penitentiary in Ourense, Spain, we tested two competing models, the Psychopathy Checklist-Revised (PCL-R), which includes criminal behaviour items, versus the Comprehensive Assessment of Psychopathic Personality (CAPP), which does not. We used two different PCL-R models, one that includes criminal items and another that does not. PCL-R factors, facets, and testlets from both models and CAPP dimensions were correlated and compared. Two different PCL-R cut-off scores, 25 or more and 30 or more, were used for the analysis. Overall, a strong correlation was found between PCL-R and CAPP scores in the whole sample, but as scores increased and inmates became more psychopathic, the correlations weakened. All these data indicate that psychopathy, understood to mean having high scores on the PCL-R and CAPP, is a multidimensional entity, and inmates can develop the disorder and then receive the diagnosis through different dimensions. The CAPP domains showed better correlations when compared with the PCL-R factors from both models, showing that an instrument for the assessment of psychopathy without a criminal dimension is valuable for clinical assessment and research purposes. 
+
+# 204 casos, tiene en sheet 1 uso de drogas; en la 2 tiene PCL-R y CAAP en los mismos casos.
+
+
+#groundhog::groundhog.library("readxl", date = replication.date, tolerate.R.version='4.0.4')
+#groundhog::groundhog.library("stringr", date = replication.date, tolerate.R.version='4.0.4')
+#groundhog::groundhog.library("qgraph", date = replication.date, tolerate.R.version='4.0.4')
+
+set.seed(6724)
+
+library(readxl)
+library(stringr)
+library(qgraph)
+
+
+base <- read_excel("/home/kroxa/Documents/bases_pcl-r/Database_Dryad2.xls", col_names = TRUE, sheet = 2 )
+colnames(base)
+pcl_flores <- base[, c(2:21)]
+
+colnames(pcl_flores)
+
+colnames(pcl_flores) <- str_replace(colnames(pcl_flores), "PCL-R ", "V")
+nrow(pcl_flores)
+
+# Borra row
+pcl_flores <-  pcl_flores[-which(pcl_flores == 5, arr.ind = TRUE)[1],] 
+#pcl_flores[pcl_flores ==5] <- NA # borra sólo el caso
+ 
+n_flores <- as.numeric(nrow(pcl_flores))
+
+
+
+
+nombre.nodos <- c("Glibness/superficial charm",	
+"Grandiose self-worth",	
+"Need for stimulation",
+"Pathological lying",	
+"Conning/manipulative",	
+"Lack of remorse",
+"Shallow affect",
+"Lack of empathy",
+"Parasitic lifestyle",
+"Poor behavioral controls",
+"Promiscuous sexual behavior",
+"Early behavioral problems",
+"Lack of goals",
+"Impulsivity",
+"Irresponsibility",
+"Will not accept responsibility",
+"Many short-term relationships",
+"Juvenile delinquency",
+"Revocation of conditional release",
+"Criminal versatility"
+)
+
+nombre.nodos <- data.frame(
+cbind(paste0("V", as.character(1:20)) ,paste0(paste0("V", as.character(1:20), ": "), nombre.nodos) 
+))
+
+# factor en la literatura
+nombre.nodos$factor <- NA
+nombre.nodos[c(1,2,4,5),]$factor <- "Interpersonal"
+nombre.nodos[c(6,7,8,16),]$factor <- "Affective"
+nombre.nodos[c(3,9,13,14,15),]$factor <- "Lifestyle"
+nombre.nodos[c(10,12,18,19,20),]$factor <- "Antisocial"
+nombre.nodos[c(11,17),]$factor <- "Sexual (excluded)"
+
+
+fact1 <-c(1,2,4,5)  # Factor 1
+fact2 <- c(6,7,8,16)     # Factor 2
+fact3 <- c(3,9,13,14,15) # factor 3
+fact4 <- c(10,12,18,19,20) #Antisocial/criminal
+excluded <- c(11,17)
+```
+
+
+
+## Factor structures proposed
+
+- One factor, 20 items
+- bifactor (w & w/o item 20)
+- Trifactor (hierarchical, correlated, with testlets (!)) --> __Does not fit in this dataset__
+- Four factors: correlated; hierarchical; hierarchical 2 facet (This last one is not specified correctly)
+- Four factors with correlated errors (will not do it! -- perhaps I must)
+- My four factor proposal, structured as all of Hare's models: correlated; hierarchical; 2F4f
+
+## Obs: 3 factor with testlets (best model in Cooke's dataset), and 2F4f did not fit.
+
+- 3f-tests: The structure of local dependencies differ from that of the other datasets
+- 2F4f: they are misspecified by me in the syntax (different degrees of freedom (1)). There is a relation I'm missing OR one that i'm adding without noticing (?).
+
+This one is mispecified as the number of degrees of freedom differs from that reported in Cooke's table (by 1). I think i should constrain some relations among latent construct, but cannot see which.
+
+Misspecification MAYBE: fix to 0 the relation between F1 and F2 (higher order) or between the lowe order facets (f) belnging to different higher order constructs.
+
+
+## One factor model
+uni_factor_syntax <- 
+
+paste0(
+  paste(
+    # Factor 1
+    paste(("f1  =~"),
+      sub('. +', '', 
+        paste(
+          paste0( " + " ,(paste0("V", 1:20))),
+          collapse =""
+      )))))
+
+uni_factor_syntax
+
+
+
+
+# bifactor original = w/o v20 "Criminal versatility"
+
+bi_factor_original_syntax <- 
+
+paste0(
+  paste(
+    # Factor 1
+    paste(("f1  =~"),
+      sub('. +', '', 
+        paste(
+          paste0( " + " ,(paste0("V", fact1))),
+          collapse =""
+      )))),
+    paste(
+              paste0( " + " ,(paste0("V", fact2))),
+              collapse =""),
+ paste0("
+         ",
+        # Factor 2
+    paste(("f2  =~"),
+      sub('. +', '', 
+        paste(
+          paste0( " + " ,(paste0("V", fact3))),
+          collapse =""
+      )))),
+    paste(
+              paste0( " + " ,(paste0("V", fact4[-length(fact4)]))),
+              collapse =""))
+
+
+# Amended version adds criminal versatility (v.20)
+bi_factor_amended_syntax <- paste0(bi_factor_original_syntax, " + V20")
+
+
+
+bi_factor_original_syntax
+bi_factor_amended_syntax
+
+
+
+
+
+
+```{r}
+three_fact_syntax <- 
+paste0(
+  paste(
+    # Factor 1
+    paste(("f1  =~"),
+      sub('. +', '', 
+        paste(
+          paste0( " + " ,(paste0("V", fact1))),
+          collapse =""
+      ))))
+  ,
+  paste0("
+         ",
+    # Factor 2
+    paste(("f2  =~"),
+      sub('. +', '', 
+        paste(
+          paste0( " + " ,(paste0("V", fact2))),
+          collapse =""
+      ))))
+,
+paste(
+  paste0("
+         ",
+    # Factor 3
+    paste(("f3  =~"),
+      sub('. +', '', 
+        paste(
+          paste0( " + " ,(paste0("V", fact3))),
+          collapse =""
+      ))))
+
+)
+)
+three_fact_syntax
+```
+
+
+
+```{r}
+four_fact_cor_syntax <- 
+paste0(
+three_fact_syntax,
+    paste("
+          "),
+    paste(("f4  =~"),
+          sub('. +', '', 
+            paste(
+              paste0( " + " ,(paste0("V", fact4))),
+              collapse =""
+          ))))
+
+four_fact_cor_syntax
+
+```
+
+
+
+
+
+```{r}
+hie_3f_syntax <- 
+paste0(
+three_fact_syntax, paste("
+                         "), "psy =~ f1 + f2 + f3") #Theory says it is the same as the trifactor correlated model
+
+hie_4f_syntax <- 
+paste0(
+four_fact_cor_syntax, paste("
+                         "), "psy =~ f1 + f2 + f3 + f4") # with four factors this is harder to fit, more restricted
+
+hie_3f_syntax
+hie_4f_syntax
+```
+
+
+#### Hare's 2 factor 4 facet model
+
+
+```{r}
+# No tiene los mismos df que en el de los autores. Quizás tengo que especificar que algunas correlaciones son 0.
+#hie_
+twoF_4f_syntax <- paste0(
+    four_fact_cor_syntax,
+    paste("
+          "),
+    paste("F1 =~ f1 + f2"),
+    paste("
+          "),
+    paste("F2 =~ f3 + f4"))
+    #,paste(""), "psy =~ F1 + F2") 
+    # This brins the old 2F correlated solution back from the dead 
+
+```
+
+
+
+
+# Modelo con testlest (Cooke et al 2007) no converge!
+hie_3f_tests_syntax <-
+        "t1 =~ V1 + V2
+         t2 =~ V4 + V5
+         t3 =~ V7 + V8
+         t4 =~ V6 + V16
+         t5 =~ V3 + V14 + V15
+         t6 =~ V9 + V13
+         f1 =~ t1 + t2
+         f2 =~ t3 + t4
+         f3 =~ t5 + t6
+         psycho =~ f1 + f2 + f3" # Handmade because lower order structure differs from previously specified models.
+hie_3f_tests_syntax
+
+
+
+```{r}
+mymodel_4f_cor_syntax <- 
+
+paste0(
+  paste(
+    # Factor 1
+    paste(("f1  =~"),
+      sub('. +', '', 
+        paste(
+          paste0( " + " ,(paste0("V", fact1))),
+          collapse =""
+      ))))
+  ,
+  paste0("
+         ",
+    # Factor 2
+    paste(("f2  =~"),
+      sub('. +', '', 
+        paste(
+          paste0( " + " ,(paste0("V", fact2))),
+          collapse =""
+      )))),
+  paste("
+  "),
+  "f3 =~ V3 + V10 + V14 + V15
+   f4 =~ V9 + V12 + V13 + V18"
+  )
+
+
+mymodel_4f_cor_syntax
+
+
+
+```
+
+### My model on Hare's variable set SYNTAX
+
+
+```{r}
+louvain_on_hare_syntax <- 
+  "F1 =~ V1 + V2 + V3 + V4 + V5
+   F2 =~ V3 + V10 + V14 + V15
+   F3 =~ V6 + V16 + V19 + V20
+   F4 =~ V7 + V8 
+   F5 =~ V9 + V12 + V13 + V18
+"
+  
+```
+
+
+## Model specification
+
+
+## Results
+
+Cooke's results: (et al., 2007)
+
+```{r}
+S.B_chisq <- c(180, 1497, 743, 948, 227, 669, 629, 623, 1, 981, 1)
+df <- c(56, 170, 118, 134, 62, 131, 130, 129, 1, 130, 1)
+aic <-  c(68, 1157, 507, 680, 153, 407, 360, 365, -1, 721, -1)
+nfi <- c(0.94, 0.69, 0.82, 0.79, 0.91, 0.85, 0.86, 0.86, 1, 0.79, 1)
+nnfi <- c(0.94, 0.68, 0.82, 0.79, 0.91, 0.86, 0.87, 0.87, 1, 0.77, 1)
+cfi <- c(0.96, 0.71, 0.84, 0.82, 0.93, 0.88, 0.89, 0.89, 1, 0.81, 1)
+rmsea <- c(0.05, 0.1, 0.08, 0.09, 0.06, 0.07, 0.07, 0.070, 0.02, 0.09, 0)
+
+tabla_original <- data.frame(cbind(S.B_chisq, df, aic, nfi, nnfi, cfi, rmsea))
+rownames(tabla_original)<- c("hie_3f_tests", "one_f", "two_f_trad", "two_f_amended", "hie_3f", "hie_4f", "hie_2F_4f", "cor_4f", "two_F4F_parceled", "two_F4f_wrong", "two_f4f_parceled_wrong")
+
+
+
+#kwa, no puedo cambiar rownames
+```
+
+## Calculate CFA models for all specified structures ... then extract selected fit measures in a table (loop)
+
+### Loop calculates CFA for all proposed models
+
+- Did not converge: 3hie model with testlets (Cooke), and 2F4f (Hare's and Mine)
+
+#### https://lavaan.ugent.be/tutorial/tutorial.pdf
+
+> When the ordered= argument is used, lavaan will automatically switch to the WLSMV estimator: it will use
+diagonally weighted least squares (DWLS) to estimate the model parameters, but it will use the full weight
+matrix to compute robust standard errors, and a mean- and variance-adjusted test stastistic. Other options
+are unweighted least squares (ULSMV), or pairwise maximum likelihood (PML). Full information maximum
+likelihood is currently not supported.
+
+#### https://stats.stackexchange.com/questions/541707/cfa-in-lavaan-wont-converge
+
+> Also, you can use DWLS (it was developed to assess parameters for the Likert scale type items), but you can also try a Robust variant of the Maximum Likelihood ("MLR") - this estimator is robust against non-extreme deviations from normality. From experience, on an odd occasion, you might get a better fit with it than DWLS. However, DWLS should be your preferred choice.
+
+```{r}
+# Create and save cfa analisys for each proposed model
+for (i in 1:length(ls(pattern = "_syntax"))) {
+  assign(
+    paste0(
+        gsub("_syntax", "",
+        ls(pattern="_syntax")),
+      "_CFA")[i],
+    cfa(
+        get(ls(pattern = "_syntax")[i]), 
+        data = pcl_flores,
+        estimator = "WLSMV",#"DWLS", #"WLSM",#"ML", 
+        #optimizer = "optimx", optimizer.options = list(method = "nlminb"),
+        #test = "robust",
+        #se = "robust",
+        std.lv = TRUE, #std.ov # variance standarization instead of marker method
+        ordered = TRUE #https://lavaan.ugent.be/tutorial/tutorial.pdf  #DWLS
+      )
+  )
+}
+
+
+```
+3 warnings for 3 non converging models
+
+### Loop creates table of fit statistics
+
+```{r}
+fit.mea <- c("chisq", "df", "pvalue","cfi",  "nnfi", "rni", "rmsea", "rmsea-scaled", "srmr", "smrm.bentler", "smrm_mplus") ##, "aic", "nfi", "nnfi")
+tabla <- ls(pattern = "_CFA")[1] %>% get %>%  fitmeasures(fit.measures = fit.mea )
+
+#for (i in setdiff(2:length(ls(pattern ="_CFA")), c(4,6,8)) ){ # exclude models which did not converge
+
+for (i in 1: length(ls(pattern = "_CFA"))){
+  x <- ls(pattern = "_CFA")[i] %>% get %>%  fitmeasures(
+    fit.measures = fit.mea #"all"
+                                                        )
+  tabla <- rbind(tabla, x)
+}
+#ls(pattern = "_CFA")[c(3)] # El con testlest no converge
+
+tabla <- tabla[-c(1),] %>% round(digits = 3) %>% data.frame()
+rownames(tabla) <- 
+        sub("_CFA$", "",
+            ls(pattern = "_CFA")) #general
+rownames(tabla) <- c(
+"Oficial 4F corr.", "Desafiante", "Oficial 4F jer.", "Louvain en oficial", "Propuesto", "3f correlacionado", "Oficial 2F4f") # Para este caso
+tabla <- tabla[-c(6),]
+tabla <-tabla[c(1,3,6,4,2,5),] # Orden desde ofical a propuesto, según aparecen en el paper.
+tabla$chisq <- paste0(tabla$chisq %>% round(digits = 0), " p=0")
+tabla <- tabla[,-c(3)]
+```
+
+
+
+
+```{r}
+write.csv(tabla, "/home/takuan/Documents/PCL-Paper-tesis/tabla_fit.csv")
+
+
+
+```
+
+
