@@ -1,0 +1,391 @@
+---
+title: "Plot_envae"
+author: "Eduardo Méndez"
+date: "2024-03-05"
+output: html_document
+---
+
+
+# Versión Ordenada
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+
+```{r}
+rm(list=ls())
+load("/home/takuan/Documents/Chap2/data/created.RData") # Data creado con el .RMD del capítulo 2.
+
+```
+
+```{r}
+library(tidyverse)
+# order in corrplot (x is a dimstab object)
+
+# Reordena según comunidad (Proxy, más conectados = más cerca)
+g <- bEGA.estudiantes.louvain$result$EGA$network[ 
+  order(match(colnames(bEGA.estudiantes.louvain$result$EGA$network), bEGA.estudiantes.louvain$result$EGA$dim.variables$items)), 
+                order(match(colnames(bEGA.estudiantes.louvain$result$EGA$network), bEGA.estudiantes.louvain$result$EGA$dim.variables$items))
+        ]
+
+g <- abs(g) # valores negativos impiden ciertos cálculos más adelante.
+# También puedo calcular strength a mano
+strength <- (g %>% colSums)/ (2)
+
+```
+
+```{r}
+# Some funky transformations (and analisys)
+library(corrplot)
+corrplot(g !=0, title= "Correlaciones en Lasso", type = c("lower")) # Lasso es relativamente denso.
+
+as.numeric(g !=0) %>% sum # más de la mitad son distintos de 0! Quizás mejor usar typical graph
+as.numeric(g ==0) %>% sum # cerca de la mitad de los 
+
+g %>% sort %>% plot # la mayoría de las correlaciones presentes son de baja magnitud. 
+# Podría deberse a: muchos casos (mayor sensibilidad); muchas variables (controla x varias, baja la correlación) --> Ruido: ebicGlasso busca una red conexa, para conectar variables con poca relación (relación con el concepto) tiene que volverse sensible a correlaciones de menor intensidad entre las variables pertencientes al concepto.5698<+                  -
+
+g[g < 0.05] <- 0
+corrplot(g != 0, title= "Correlaciones en Lasso, eliminando < 0.05", type = c("lower"))
+
+```
+
+El grafo tiene muchos ejes, y con bajo peso. Eliminando aquellos con bajo peso (muchos), el grafo queda legible. El objeto typical graph (no-mostrado) también es denso.
+
+
+- La mayoría de las correlaciones presentes son de baja magnitud. Podría deberse a: 
+
+- muchos casos (mayor sensibilidad); 
+- muchas variables (controla x varias, baja la correlación) 
+- ruido: EbicGlasso busca una red conexa, para conectar variables con poca relación (relación con el concepto) tiene que volverse sensible a correlaciones de menor intensidad entre las variables pertinetes al concepto.                -
+
+
+
+
+```{r genera.grafo.estudiantes}
+library(tidygraph)
+library(ggraph)
+
+# order in corrplot (x is a dimstab object)
+
+# Reordena según comunidad (Proxy, más conectados = más cerca)
+g.estudiantes <- bEGA.estudiantes.louvain$result$EGA$network[ 
+  order(match(colnames(bEGA.estudiantes.louvain$result$EGA$network), bEGA.estudiantes.louvain$result$EGA$dim.variables$items)), 
+                order(match(colnames(bEGA.estudiantes.louvain$result$EGA$network), bEGA.estudiantes.louvain$result$EGA$dim.variables$items))
+        ]
+
+g.estudiantes <- abs(g.estudiantes) # valores negativos impiden ciertos cálculos más adelante.
+# También puedo calcular strength a mano
+
+
+# Elimina bajas correlaciones; uncheck
+#g.estudiantes[g.estudiantes < 0.05] <- 0 # Elimino correlaciones de baja intensidad (muchas)
+strength.estudiantes <- (g.estudiantes %>% colSums)#/ (2) # Mantiene el orden 
+mygraph.estudiantes <- as_tbl_graph(g.estudiantes, directed = FALSE)
+
+library(viridisLite)
+pinta.estudiantes <- 
+  (viridisLite::turbo(bEGA.estudiantes.louvain$result$EGA$n.dim))[as.numeric(bEGA.estudiantes.louvain$result$EGA$dim.variables$dim)]
+
+# Colores intercalados para resaltar diferencias
+#pinta.estudiantes <- (viridisLite::turbo(bEGA.estudiantes.louvain$result$EGA$n.dim)[c(1, length(viridisLite::turbo(bEGA.estudiantes.louvain$result$EGA$n.dim)):2)])[as.numeric(bEGA.estudiantes.louvain$result$EGA$dim.variables$dim)]
+
+
+```
+
+
+
+
+## Typical Graph también es denso!
+
+```{r}
+g.profes <- bEGA.profes.louvain$result$EGA$network
+
+g.profes <- # Ordenado según el grago de estudiantes
+  g.profes[(order(match(
+        colnames(g.profes), 
+        colnames(g.estudiantes)
+      ))),
+        (order(match(
+        colnames(g.profes), 
+        colnames(g.estudiantes)
+      )))] 
+#(g.profes %>% colnames) == colnames(g.estudiantes) #YES
+
+g.profes <- abs(g.profes) # valores negativos impiden ciertos cálculos más adelante.
+# También puedo calcular strength a mano
+
+
+# UNcheck
+#g.profes[g.profes < 0.05] <- 0 # Elimino correlaciones de baja intensidad (muchas)
+strength.profes <- (g.profes %>% colSums)#/ (2)
+
+mygraph.profes <- as_tbl_graph(g.profes, directed = FALSE)
+
+library(viridisLite)
+
+pinta.profes <- (viridisLite::turbo(bEGA.profes.louvain$result$EGA$n.dim))[(bEGA.profes.louvain$result$EGA$dim.variables$dim[order(match(bEGA.profes.louvain$result$EGA$dim.variables$item,colnames(g.estudiantes)))] %>% as.numeric)]
+
+#pinta.profes <- (viridisLite::turbo(bEGA.profes.louvain$result$EGA$n.dim)[c(1, length(viridisLite::turbo(bEGA.profes.louvain$result$EGA$n.dim)):2)])[as.numeric(bEGA.profes.louvain$result$EGA$dim.variables$dim)]
+
+```
+
+
+```{r}
+corrplot(g.estudiantes !=0, title= "Correlaciones en Lasso. Estudiantes", type = c("lower")) # Lasso es relativamente denso.
+
+
+corrplot(g.profes !=0, title= "Correlaciones en Lasso. Docentes", type = c("lower")) # ¿
+
+
+
+plot(g.estudiantes %>% sort, type = "l", col = "blue", ylim = range(c(g.estudiantes %>% sort, g.profes %>% sort)), xlab = "", ylab = "Magnitud", main = "Correlaciones parciales, comparadas")
+lines(g.profes %>% sort, col = "red")
+legend("topleft", legend = c("Estudiantes", "Docentes"), col = c("blue", "red"), lty = 1)
+```
+```{r}
+corrplot(g.estudiantes, title= "Correlaciones en Lasso. Estudiantes", type = c("lower")) # Lasso es relativamente denso.
+
+
+corrplot(g.profes, title= "Correlaciones en Lasso. Docentes", type = c("lower")) # ¿
+
+```
+
+
+# Identificar edges en común entre ambas bases
+
+```{r E.attribute_common_edges}
+mat.estudiantes <- g.estudiantes
+mat.estudiantes[mat.estudiantes !=0] <- 1
+#mat.estudiantes
+
+mat.profes <- g.profes
+mat.profes[mat.profes !=0] <- 1
+#mat.profes
+
+# ¿Qué pasa si resto?
+mat.diferencias <- mat.estudiantes - mat.profes
+(mat.estudiantes - mat.profes ) %>% table # queda con -1, 0 y 1.
+# 0: Es 0 o es 1 en ambas matrices --> Igual
+# 1: Es 1 sólo en mat estudiantes (1 - 0)
+# -1: Es 1 sólo en mat profes (-1 + 0)
+
+# Ahora. Meter esta info en el objeto tidygraph (cómo??)
+#mat.solo.estudiantes <- ifelse(mat.diferencias == 1, "red", "black") # los que son 0, mantienen el color negro!
+#mat.solo.profes <- ifelse(mat.diferencias == -1, "red", "black")
+#edge_colors <- ifelse(adj_matrix, "red", "black")
+
+
+# Forma matricial de identificar edges únicos y compartidos
+mat.try.estudiantes <- mat.diferencias +1
+mat.try.estudiantes[mat.estudiantes == 0] <- 0
+
+#mat.try.estudiantes <- mat.try.estudiantes[upper.tri(mat.try.estudiantes)]
+mat.try.estudiantes <- mat.try.estudiantes[lower.tri(mat.try.estudiantes)]
+mat.try.estudiantes <- mat.try.estudiantes[mat.try.estudiantes != 0]
+mat.try.estudiantes %>% table
+
+
+mat.try.estudiantes[mat.try.estudiantes == 2] <- "Única"
+mat.try.estudiantes[mat.try.estudiantes == 1] <- "En común"  
+#mat.try.estudiantes
+
+# Profes
+mat.try.profes <- mat.diferencias -1
+mat.try.profes[mat.profes == 0] <- 0
+
+#mat.try.profes <- mat.try.profes[upper.tri(mat.try.profes)]
+mat.try.profes <- mat.try.profes[lower.tri(mat.try.profes)]
+mat.try.profes <- mat.try.profes[mat.try.profes != 0]
+mat.try.profes %>% table
+
+
+mat.try.profes[mat.try.profes == -2] <- "Única"
+mat.try.profes[mat.try.profes == -1] <- "En común"  
+#mat.try.profes
+```
+
+
+```{r E.attribute_common_edges2}
+# CPGT:: Assuming 'mygraph.estudiantes' is your tidygraph object and 'mat.try.estudiantes' is your vector of attributes extracted from the upper triangle
+
+# Get the edges of the graph as a data frame
+edges_df <- mygraph.estudiantes %>%
+  activate(edges) %>%
+  as_tibble()
+
+# Add edge attribute
+edges_df <- edges_df %>%
+  mutate(Causalidad = mat.try.estudiantes)
+
+# Join the edge attribute back to the graph
+mygraph.estudiantes <- mygraph.estudiantes %>%
+  activate(edges) %>%
+  left_join(edges_df[, c("from", "to", "Causalidad")], by = c("from", "to"))
+
+# Now 'mygraph.estudiantes' contains the edge attributes
+
+
+## PROFES
+
+# Get the edges of the graph as a data frame
+edges_df <- mygraph.profes %>%
+  activate(edges) %>%
+  as_tibble()
+# Add edge attribute
+edges_df <- edges_df %>%
+  mutate(Causalidad = mat.try.profes)
+# Join the edge attribute back to the graph
+mygraph.profes <- mygraph.profes %>%
+  activate(edges) %>%
+  left_join(edges_df[, c("from", "to", "Causalidad")], by = c("from", "to"))
+
+
+## Agregar atributo al objeto tidygraph
+```
+
+
+
+
+
+
+
+```{r}
+ggraph(mygraph.estudiantes, layout="linear", circular = TRUE ) +
+  geom_node_point(color = pinta.estudiantes, size = (strength.estudiantes * 10), alpha = 0.5) +  # vértices según comunidad de pertenencia
+  geom_node_text(aes(label = name), vjust = 0.8, hjust = 0.8, size = 3) +
+  geom_edge_arc(aes(color = Causalidad, width = weight), alpha = 0.3) + # Pinta ejes según atributo
+  scale_edge_width_continuous(range = c(0.1, 2), breaks = pretty(range(mygraph.estudiantes$weight), n = 5)) + #Modula ancho de ejes
+  ggtitle("Estudiantes") +
+  theme_void()
+
+
+
+ggraph(mygraph.profes, layout="linear", circular = TRUE ) +
+  geom_node_point(color = pinta.profes, size = (strength.profes * 10), alpha = 0.5) +  # vértices según comunidad de pertenencia
+  geom_node_text(aes(label = name), vjust = 0.8, hjust = 0.8, size = 3) +
+  geom_edge_arc(aes(color = Causalidad, width = weight), alpha = 0.3) + # Pinta ejes según atributo
+  scale_edge_width_continuous(range = c(0.1, 2), breaks = pretty(range(mygraph.profes$weight), n = 5)) + #Modula ancho de ejes
+  ggtitle("Docentes") +
+  theme_void()
+
+
+```
+
+
+##probando aquí
+
+```{r}
+ggraph(mygraph.estudiantes, layout="linear", circular = TRUE ) +
+  geom_node_point(color = pinta.estudiantes, size = (strength.estudiantes * 12), alpha = 0.5) +  # vértices según comunidad de pertenencia
+  geom_node_text(aes(label = name), vjust = 0.8, hjust = 0.8, size = 3) +
+  geom_edge_arc(aes(color = Causalidad, width = weight), alpha = 0.3) + # Pinta ejes según atributo
+  scale_edge_width_continuous(range = c(0.1, 2), breaks = pretty(range(mygraph.estudiantes$weight), n = 5)) + #Modula ancho de ejes
+  ggtitle("Estudiantes") +
+  theme_void()
+
+
+
+ggraph(mygraph.profes, layout="linear", circular = TRUE ) +
+  geom_node_point(color = pinta.profes, size = (strength.profes * 12), alpha = 0.5) +  # vértices según comunidad de pertenencia
+  geom_node_text(aes(label = name), vjust = 0.8, hjust = 0.8, size = 3) +
+  geom_edge_arc(aes(color = Causalidad, width = weight), alpha = 0.3) + # Pinta ejes según atributo
+  scale_edge_width_continuous(range = c(0.1, 2), breaks = pretty(range(mygraph.profes$weight), n = 5)) + #Modula ancho de ejes
+  ggtitle("Docentes") +
+  theme_void()
+
+
+```
+
+```{r}
+ggraph(mygraph.estudiantes, layout="linear", circular = TRUE ) +
+  geom_node_point(color = "gray", size = (strength.estudiantes * 12), alpha = 0.5) +  # vértices según comunidad de pertenencia
+  geom_node_text(aes(label = name), vjust = 0.8, hjust = 0.8, size = 3) +
+  geom_edge_arc(aes(color = Causalidad, width = weight), alpha = 0.3) + # Pinta ejes según atributo
+  scale_edge_width_continuous(range = c(0.1, 2), breaks = pretty(range(mygraph.estudiantes$weight), n = 5)) + #Modula ancho de ejes
+  ggtitle("Estudiantes") +
+  theme_void()
+
+ggraph(mygraph.profes, layout="linear", circular = TRUE ) +
+  geom_node_point(color = "gray", size = (strength.profes * 12), alpha = 0.5) +  # vértices según comunidad de pertenencia
+  geom_node_text(aes(label = name), vjust = 0.8, hjust = 0.8, size = 3) +
+  geom_edge_arc(aes(color = Causalidad, width = weight), alpha = 0.3) + # Pinta ejes según atributo
+  scale_edge_width_continuous(range = c(0.1, 2), breaks = pretty(range(mygraph.profes$weight), n = 5)) + #Modula ancho de ejes
+  ggtitle("Docentes") +
+  theme_void()
+
+
+```
+
+
+
+
+
+
+
+```{r}
+print("strengh")
+g.estudiantes %>% colSums %>% sort(decreasing = TRUE) %>% names #
+
+mata <- (g.estudiantes != 0) 
+mata[mata == FALSE] <- 0
+mata[mata == TRUE] <- 1
+print("degree centrlity")
+mata %>% colSums %>% sort(decreasing = TRUE) %>% names
+
+
+
+
+```
+
+
+# Comprueba que densidad de red en estudiantes es independiente de número de casos
+
+```{r}
+library(EGAnet)
+
+set.seed (115)
+ega.subset.estudiantes.1 <- 
+(envae.estudiantes.subset_cfa[sample(nrow(envae.estudiantes.subset_cfa), size = nrow(envae.docentes.subset_cfa)),]) %>% as.matrix
+
+set.seed (666)
+ega.subset.estudiantes.2 <- 
+  envae.estudiantes.subset_cfa[sample(nrow(envae.estudiantes.subset_cfa), size = nrow(envae.docentes.subset_cfa)),] %>% as.matrix()
+
+
+#ega.subset.estudiantes.2 == ega.subset.estudiantes.1 #son distintos
+
+ega1 <- 
+ega.subset.estudiantes.1 %>% EGA(corr ="auto", model = "glasso", algorithm = "louvain",na.data = "listwise")
+ega2 <- 
+ega.subset.estudiantes.2 %>% EGA(corr ="auto", model = "glasso", algorithm = "louvain",na.data = "listwise")
+
+
+```
+
+```{r}
+
+corrplot(g.estudiantes !=0, title= "Correlaciones en Lasso. Estudiantes", type = c("lower")) # Lasso es relativamente denso.
+
+
+corrplot(ega1$network !=0, title= "Correlaciones en Lasso. Subset A", type = c("lower")) # Lasso es relativamente denso.
+corrplot(ega2$network !=0, title= "Correlaciones en Lasso. Subset B", type = c("lower")) # Lasso es
+
+
+corrplot(g.profes !=0, title= "Correlaciones en Lasso. Docentes", type = c("lower")) # Lasso es
+```
+La red de estudiantes sigue siendo más densa aun en submuestras del mismo número que la base de docentes. La estructura no se debe al número de casos.
+
+
+```{r}
+
+```
+
+
+
+## Subcomunidades
+
+
+
+

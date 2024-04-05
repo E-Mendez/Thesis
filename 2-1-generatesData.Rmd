@@ -1,0 +1,716 @@
+---
+title: ""
+author: ""
+date: "`r Sys.Date()`"
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(here)
+
+library(readxl)
+
+library(dplyr)
+library(psych)
+library(qgraph)
+library(igraph)
+
+library(tidyverse)
+library(haven)
+library(labelled)
+
+library(car)
+library(knitr)
+library(kableExtra)
+
+
+set.seed(115)
+aqui <-  here()
+```
+
+```{r load.database, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+envae.docentes <- read_spss(file =paste0(aqui, "/data/ENVAE 2014 - Docentes.sav"))
+envae.estudiantes <- read_spss(paste0(aqui,"/data/ENVAE 2014 - Estudiantes_2.sav"))
+preguntas_clima_escolar <- read_excel(paste0(aqui,"/data/clima_escolar.xlsx")) 
+
+envae.docentes.subset <- envae.docentes[colnames(envae.docentes) %in% preguntas_clima_escolar$bbdd_doc]
+envae.estudiantes.subset <- envae.estudiantes[colnames(envae.estudiantes) %in% preguntas_clima_escolar$bbdd_est]
+
+# Crear un vector de mapeo entre bbdd_doc y name
+mapping_docentes <- setNames(preguntas_clima_escolar$name, preguntas_clima_escolar$bbdd_doc)
+mapping_estudiantes <- setNames(preguntas_clima_escolar$name, preguntas_clima_escolar$bbdd_est)
+
+# Renombrar las columnas del subconjunto
+names(envae.docentes.subset) <- mapping_docentes[names(envae.docentes.subset)]
+names(envae.estudiantes.subset) <- mapping_estudiantes[names(envae.estudiantes.subset)]
+
+# Elimnando datos vacios (evaluados como 0) y dobles marcas (evaluados como 9)
+envae.docentes.subset <- lapply(envae.docentes.subset, function(x) {
+    # Reemplazar 0 y 9 por NA
+    x <- replace(x, x == 0 | x == 9, NA)
+    return(x)
+})
+
+envae.estudiantes.subset <- lapply(envae.estudiantes.subset, function(x) {
+    # Reemplazar 0 y 9 por NA
+    x <- replace(x, x == 0 | x == 9, NA)
+    return(x)
+})
+
+# Convertir la lista resultante de nuevo a un dataframe
+envae.docentes.subset <- as.data.frame(envae.docentes.subset)
+envae.estudiantes.subset <- as.data.frame(envae.estudiantes.subset)
+
+# Nos quedamos sólo con los datos completos
+envae.docentes.subset <- na.omit(envae.docentes.subset)
+envae.estudiantes.subset <- na.omit(envae.estudiantes.subset)
+
+# Cambiamos orientación de la pregunta sobre seguridad general para alinearla con el resto
+envae.docentes.subset$sg0 <- car::recode(envae.docentes.subset$sg0, "1=2;2=1")
+envae.estudiantes.subset$sg0 <- car::recode(envae.estudiantes.subset$sg0, "1=2;2=1")
+
+variables_full <- colnames(envae.estudiantes.subset)
+envae.estudiantes.subset_cfa <- envae.estudiantes.subset[colnames(envae.estudiantes.subset) %in% variables_full]
+envae.docentes.subset_cfa <- envae.docentes.subset[colnames(envae.docentes.subset) %in% variables_full]
+```
+
+
+
+```{r insumo_anexo1, echo=FALSE, include=TRUE, warning=FALSE, message=FALSE}
+
+library(kableExtra)
+homologa <- cbind(preguntas_clima_escolar$bbdd_est,preguntas_clima_escolar$bbdd_doc,preguntas_clima_escolar$name)
+homologa <- as.data.frame(homologa) 
+kable(homologa, "latex") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F, position = "left") %>%
+  row_spec(0, bold = T, color = "black", background = "#D3D3D3") 
+
+```
+
+```{r insumo_anexo2, include=FALSE, echo=FALSE}
+descripcion_est <- describe(envae.estudiantes.subset_cfa)
+
+descripcion_doc <- describe(envae.docentes.subset_cfa)
+```
+
+
+```{r, echo=FALSE, include=FALSE}
+library(EGAnet)
+
+EGA.envae <- function(x){
+      EGA(x, 
+          corr = "cor_auto", 
+          algorithm = "louvain", 
+          plot.EGA = FALSE) 
+}
+
+EGA.expertos.estudiantes <- envae.estudiantes.subset_cfa %>% EGA.envae
+network_est_ega <- EGA.expertos.estudiantes$network
+
+EGA.expertos.docentes <- envae.docentes.subset_cfa %>% EGA.envae
+network_doc_ega <- EGA.expertos.docentes$network
+
+```
+
+```{r qgraph_est, echo=FALSE, include=FALSE}
+cor_matrix_est <- cor(envae.estudiantes.subset)
+partial_cor_est <- qgraph::EBICglasso(cor_matrix_est, 
+                                      n = NROW(envae.estudiantes.subset),
+                                      threshold = TRUE)
+```
+
+```{r qgraph_doc, echo=FALSE, include=FALSE}
+cor_matrix_doc <- cor(envae.docentes.subset)
+partial_cor_doc <- qgraph::EBICglasso(cor_matrix_doc, 
+                                      n = NROW(envae.docentes.subset),
+                                      threshold = TRUE)
+```
+
+Figura 1 - Red de preguntas (Estudiantes)    
+
+```{r red_est1, echo=FALSE,include=TRUE}
+
+# Estas son las coordenadas generadas en EGAnet más adelante. Las usaremos acá para que
+# todos los layouts de los distintos grafos sean el mismo
+
+x <- c(0.25193076,0.61028889,0.75105362,0.68938003,0.86831933,0.74108083,1.00000000,
+       0.69070091,0.87140471,0.61689254,0.97475269,0.67532914,0.83954702,0.85680098,
+       0.24286914,0.42373801,0.45406337,0.61935799,0.47690881,0.41950407,0.33172535,
+       0.30583219,0.28242119,0.09916989,0.04717834,0.00000000)
+y <- c(0.60994480,0.02099985,0.03516120,0.18124584,0.16874131,0.54838162,0.64262985,
+       0.89937000,0.69630122,1.00000000,0.44102679,0.39279698,0.44442820,0.87313522,
+       0.77714067,0.98920351,0.80299815,0.73503247,0.61889253,0.20335110,0.00000000,
+       0.13921276,0.39521040,0.38889827,0.56008379,0.42251548)
+layout_saved <- cbind(x,y)
+layout_saved <- as.matrix(layout_saved)
+
+network_est <- qgraph(network_est_ega, layout = layout_saved, graph = "default",
+                      details = TRUE)
+
+layout_saved <- network_est$layout # esta línea se podría eliminar
+
+```
+
+Figura 2 - Red de preguntas (Docentes)    
+
+```{r red_est2, echo=FALSE,include=TRUE}
+network_doc <- qgraph(network_doc_ega, layout = layout_saved, graph = "default",
+                      details = TRUE)
+```
+  
+
+Figura 3 - Centralidades de fortaleza e intermediación en las redes de estudiantes y de profesores  
+
+```{r centralidades, echo=FALSE, include=TRUE}
+# Calcular medidas de centralidad
+centralities_est <- centrality_auto(network_est)
+centralities_doc <- centrality_auto(network_doc)
+
+centralityPlot(list(Students = network_est, Teachers = network_doc),
+               include = 
+               c("Strength","Betweenness"),
+               orderBy ="Strength")
+
+```
+
+ 
+
+```{r comunidades, echo=FALSE,include=FALSE}
+
+clusters_est <- EGA.expertos.estudiantes$dim.variables
+clusters_doc <- EGA.expertos.docentes$dim.variables
+plots_EGA <- compare.EGA.plots(EGA.expertos.estudiantes, EGA.expertos.docentes,
+                  base = 1, 
+                  #layout = layout_saved,
+                  labels = c("Students", "Teachers"),
+                  rows = 1, columns = 2)
+```
+
+Figura 4 - Comunidades en la red de estudiantes    
+```{r comunidades_p1, echo=FALSE,include=TRUE, message=FALSE, warning=FALSE}
+plots_EGA$individual[1]
+```
+
+Figura 5 - Comunidades en la red de profesores    
+```{r comunidades_p2, echo=FALSE,include=TRUE,message=FALSE, warning=FALSE}
+plots_EGA$individual[2]
+```
+
+
+
+```{r bootEGA.FUNCTION, echo = FALSE, include=FALSE}
+# Función bootstrapped exploratory graph analysis con criterios seleccionados
+bEGA.envae <- function(x){
+  x %>% bootEGA( type = "resampling", 
+                              algorithm = comunidad,
+                              iter = 500 , # en cuantas muestras repetimos
+                              seed = 115,
+                              ncores = parallel::detectCores()) # Usa todos los procesadores para reducir tiempo
+}
+
+bEGA.envae <- function(x) {
+  bootEGA_result <- x %>% bootEGA(
+    type = "resampling",
+    algorithm = comunidad,
+    iter = 500, 
+    seed = 115,
+    ncores = parallel::detectCores()
+  )
+   plot_object <- bootEGA_result$plot
+   return(list(result = bootEGA_result, plot = plot_object))
+  }
+
+```
+
+
+```{r bootEGA.profes.2, echo=FALSE, include=FALSE}
+
+comunidad <- "louvain"
+# Estudiantes
+bEGA.estudiantes.louvain <- 
+      envae.estudiantes.subset_cfa %>% bEGA.envae()
+
+boot_estudiantes_lv <- paste0("Comunidades estudiantes bootnet \n",
+                           "Boots: ",bEGA.estudiantes.louvain$summary.table$n.Boots,"\n",
+                           "Median: ",bEGA.estudiantes.louvain$summary.table$median.dim,"\n",
+                           "SE: ",bEGA.estudiantes.louvain$summary.table$SE.dim,"\n",
+                           "Lower.CI: ",bEGA.estudiantes.louvain$summary.table$Lower.CI,"\n",
+                           "Upper.CI ",bEGA.estudiantes.louvain$summary.table$Upper.CI,"\n",
+                           "Lower.Quantile: ",bEGA.estudiantes.louvain$summary.table$Lower.Quantile,"\n",
+                           "Upper.Quantile: ",bEGA.estudiantes.louvain$summary.table$Upper.Quantile)
+
+print(boot_estudiantes_lv)
+```
+
+
+```{r bootEGA.profes.2b, echo=FALSE, include=FALSE}
+#Profes
+bEGA.profes.louvain <- 
+      envae.docentes.subset_cfa %>% bEGA.envae()
+
+boot_docentes_lv <- paste0("Comunidades docentes bootnet \n",
+                           "Boots: ",bEGA.profes.louvain$summary.table$n.Boots,"\n",
+                           "Median: ",bEGA.profes.louvain$summary.table$median.dim,"\n",
+                           "SE: ",bEGA.profes.louvain$summary.table$SE.dim,"\n",
+                           "Lower.CI: ",bEGA.profes.louvain$summary.table$Lower.CI,"\n",
+                           "Upper.CI ",bEGA.profes.louvain$summary.table$Upper.CI,"\n",
+                           "Lower.Quantile: ",bEGA.profes.louvain$summary.table$Lower.Quantile,"\n",
+                           "Upper.Quantile: ",bEGA.profes.louvain$summary.table$Upper.Quantile)
+
+print(boot_docentes_lv)
+
+```
+
+```{r, echo=FALSE,include=FALSE}
+bEGA.estudiantes.louvain$plot
+```
+```{r, echo=FALSE,include=FALSE}
+bEGA.profes.louvain$plot
+```
+
+
+```{r bootEGA.profes.3, echo=FALSE, include=FALSE}
+
+comunidad <- "walktrap"
+bEGA.estudiantes.walktrap <-
+  envae.estudiantes.subset_cfa %>% bEGA.envae()
+
+boot_estudiantes_wt <- paste0("Comunidades estudiantes bootnet \n",
+                           "Boots: ",bEGA.estudiantes.louvain$summary.table$n.Boots,"\n",
+                           "Median: ",bEGA.estudiantes.louvain$summary.table$median.dim,"\n",
+                           "SE: ",bEGA.estudiantes.louvain$summary.table$SE.dim,"\n",
+                           "Lower.CI: ",bEGA.estudiantes.louvain$summary.table$Lower.CI,"\n",
+                           "Upper.CI ",bEGA.estudiantes.louvain$summary.table$Upper.CI,"\n",
+                           "Lower.Quantile: ",bEGA.estudiantes.louvain$summary.table$Lower.Quantile,"\n",
+                           "Upper.Quantile: ",bEGA.estudiantes.louvain$summary.table$Upper.Quantile)
+
+```
+
+```{r bootEGA.profes.3b, echo=FALSE, include=FALSE}
+bEGA.profes.walktrap <-
+  envae.docentes.subset_cfa %>% bEGA.envae()
+
+boot_docentes_wt <- paste0("Comunidades docentes bootnet \n",
+                           "Boots: ",bEGA.profes.louvain$summary.table$n.Boots,"\n",
+                           "Median: ",bEGA.profes.louvain$summary.table$median.dim,"\n",
+                           "SE: ",bEGA.profes.louvain$summary.table$SE.dim,"\n",
+                           "Lower.CI: ",bEGA.profes.louvain$summary.table$Lower.CI,"\n",
+                           "Upper.CI ",bEGA.profes.louvain$summary.table$Upper.CI,"\n",
+                           "Lower.Quantile: ",bEGA.profes.louvain$summary.table$Lower.Quantile,"\n",
+                           "Upper.Quantile: ",bEGA.profes.louvain$summary.table$Upper.Quantile)
+```
+
+
+
+```{r item.stability.escala2, echo=FALSE, include=FALSE}
+
+ItemStab.estudiantes.louvain <- bEGA.estudiantes.louvain$result %>% itemStability()
+ItemStab.profes.louvain <- bEGA.profes.louvain$result %>% itemStability()
+
+
+```
+
+
+
+
+
+```{r corrplot.function2, echo=FALSE, include=TRUE, warning=FALSE, message=FALSE}
+library(circlize)
+# Color scale with threshold for Item Stability 
+threshold.colors <- circlize::colorRamp2(breaks = c(0, 0.01, 0.65, 0.651, 0.99 , 1),
+                  colors = c("white","darkred", "red", "lawngreen", "darkgreen", "royalblue4"),
+                  transparency = 0, space ="RGB")
+
+
+library(corrplot)
+corrplot.envae_est <- 
+  function (x){
+      corrplot(
+        x$item.stability$all.dimensions[c((ItemStab.estudiantes.louvain$membership[[1]]) %>% sort %>% names),],
+        #x$item.stability$all.dimensions[c(ItemStab.estudiantes.louvain$membership[[1]]) %>% sort %>% names)], #get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions, 
+        #datob,
+        method = 'circle',
+        col = threshold.colors(seq(0,1, by = 0.01)),
+        col.lim = c(0, 1),
+        #cl.pos = 'n', # especificar margenes para tener titulo
+        cl.pos = 'b',
+        #title = paste0("Item stability for ", sub(".*res_flores.", "", (ls(pattern = "item.stab")[i]))),
+        tl.col =  "black",#c(nombre.nodos$colores.dark[match(rownames(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions), nombre.nodos$fraseo)]),#"black",
+        is.corr = FALSE,
+        cl.length = 0.5 ,
+        #cl.cex = 0.1,
+        #cl.offset = 0.651,
+        mar=c(0,0,1,0),
+        title = nombre.graph
+        )
+
+
+colorlegend(
+        colbar = threshold.colors(seq(0,1, by = 0.01)),
+        labels = c(0, 0.651, 1),
+        at = c(0, 0.651, 1),
+        xlim = c(0.35, ncol(x$item.stability$all.dimensions) +0.5), # best placing heuristic
+        ylim = c(-9, 0.3),
+        vertical = FALSE,
+        #align = "r",
+        ratio.colbar = 0.1,
+        lim.segment = "auto",
+        addlabels = TRUE
+      )
+    
+      
+  
+}
+
+corrplot.envae_doc <- 
+  function (x){
+      corrplot(
+        x$item.stability$all.dimensions[c((ItemStab.profes.louvain$membership[[1]]) %>% sort %>% names),],
+        #x$item.stability$all.dimensions[c(ItemStab.estudiantes.louvain$membership[[1]]) %>% sort %>% names)], #get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions, 
+        #datob,
+        method = 'circle',
+        col = threshold.colors(seq(0,1, by = 0.01)),
+        col.lim = c(0, 1),
+        #cl.pos = 'n', # especificar margenes para tener titulo
+        cl.pos = 'b',
+        #title = paste0("Item stability for ", sub(".*res_flores.", "", (ls(pattern = "item.stab")[i]))),
+        tl.col =  "black",#c(nombre.nodos$colores.dark[match(rownames(get(ls(pattern = "item.stab")[i])$item.stability$all.dimensions), nombre.nodos$fraseo)]),#"black",
+        is.corr = FALSE,
+        cl.length = 0.5 ,
+        #cl.cex = 0.1,
+        #cl.offset = 0.651,
+        mar=c(0,0,1,0),
+        title = nombre.graph
+        )
+
+
+colorlegend(
+        colbar = threshold.colors(seq(0,1, by = 0.01)),
+        labels = c(0, 0.651, 1),
+        at = c(0, 0.651, 1),
+        xlim = c(0.35, ncol(x$item.stability$all.dimensions) +0.5), # best placing heuristic
+        ylim = c(-9, 0.3),
+        vertical = FALSE,
+        #align = "r",
+        ratio.colbar = 0.1,
+        lim.segment = "auto",
+        addlabels = TRUE
+      )
+    
+      
+  
+}
+
+```
+
+Figura 6 - Análisis de sensibilidad en la detección de comunidades de preguntas - Estudiantes
+  
+```{r PLOTcorrplot2, fig.show = "hold", out.width= "100%", fig.cap= " Item Stability: Estudiantes (izq); Docentes (der).", echo=FALSE}
+
+
+# Estudiantes
+nombre.graph = "Item Stability: Students, Louvain"
+corrplot.envae_est(ItemStab.estudiantes.louvain)
+
+
+```
+
+Figura 7 - Análisis de sensibilidad en la detección de comunidades de preguntas - Profesores
+  
+```{r PLOTcorrplot3, fig.show = "hold", out.width= "100%", fig.cap= " Item Stability: Estudiantes (izq); Docentes (der).", echo=FALSE}
+
+# Profes
+nombre.graph = "Item Stability: Teachers, Louvain"
+corrplot.envae_doc(ItemStab.profes.louvain)
+
+
+```
+
+
+
+### Análisis factorial confirmatorio  
+
+A partir de los resultados anteriores, se generaron los siguientes dos modelos de análisis factorial confirmatorio para estudiantes y docentes respectivamente:
+
+
+
+Los resultados se resumen en la tabla 1. 
+
+Tabla 1
+```{r cfa al resultado, echo=FALSE, include=FALSE}
+
+
+library(lavaan)
+
+cfa_model_estudiantes <- '
+  Factor1 =~ sg1 + sg2 + sg3
+  Factor2 =~ pr1 + pr2 + pr3 + sg0 + cn0 + rl4  
+  Factor3 =~ tr1 + tr2 + tr3 + tr4 + tr5 + rl1 + rl3
+  Factor4 =~ nr1 + nr2 + nr3 + cn6 + rl2
+  Factor5 =~ cn1 + cn2 + cn3 + cn4 + cn5
+'
+
+cfa_model_docentes <- '
+  Factor1 =~ sg0 + sg1 + sg2 + sg3
+  Factor2 =~ pr1 + pr2 + pr3   
+  Factor3 =~ tr2 + tr3 + tr4 + tr5 + rl2 + rl4 + cn0 + cn6
+  Factor4 =~ nr1 + nr2 + nr3 + rl1 + rl3 + tr1
+  Factor5 =~ cn1 + cn2 + cn3 + cn4 + cn5
+'
+
+cfa_fit_estudiantes <- cfa(cfa_model_estudiantes, data=envae.estudiantes.subset_cfa, ridge = 1e-5)
+cfa_fit_docentes <- cfa(cfa_model_docentes, data=envae.docentes.subset_cfa, ridge = 1e-5)
+
+```
+
+
+
+```{r cfa, echo=FALSE, include=TRUE, warning=FALSE, message=FALSE}
+
+rmsea_est <- round(fitMeasures(cfa_fit_estudiantes, "rmsea"),3)
+cfi_est <- round(fitMeasures(cfa_fit_estudiantes, "cfi"),3)
+tli_est <- round(fitMeasures(cfa_fit_estudiantes, "tli"),3)
+srmr_est <-   round(fitMeasures(cfa_fit_estudiantes, "srmr"),3)
+nfi_est <- round(fitMeasures(cfa_fit_estudiantes, "nfi"),3)
+chi_square_pvalue_est <- round(fitMeasures(cfa_fit_estudiantes, "pvalue"),3)
+
+rmsea_doc <- round(fitMeasures(cfa_fit_docentes, "rmsea"),3)
+cfi_doc <- round(fitMeasures(cfa_fit_docentes, "cfi"),3)
+tli_doc <- round(fitMeasures(cfa_fit_docentes, "tli"),3)
+srmr_doc <- round(fitMeasures(cfa_fit_docentes, "srmr"),3)
+nfi_doc <- round(fitMeasures(cfa_fit_docentes, "nfi"),3)
+chi_square_pvalue_doc <- round(fitMeasures(cfa_fit_docentes, "pvalue"),3)
+
+cfa_fits <- matrix(c(rmsea_est,cfi_est,tli_est,srmr_est,nfi_est,chi_square_pvalue_est,
+  rmsea_doc,cfi_doc,tli_doc,srmr_doc,nfi_doc,chi_square_pvalue_doc),
+  nrow=2,ncol=6, byrow=T)
+cfa_fits <- as.data.frame(cfa_fits)
+colnames(cfa_fits) <- c("RMSEA","CFI","TLI","SRMR","NFI","P-value")
+row.names(cfa_fits) <- c("Students","Teachers") 
+
+
+kable(cfa_fits, format = "pandoc")  %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+
+
+# Anexos 1 - Preguntas incluídas en el análisis  
+
+Tabla A1 -  Preguntas sobre clima escolar en la ENVAE 2014 para estudiantes y docentes
+```{r anexo1, echo=FALSE, warning=FALSE, message=FALSE}
+preg <- cbind(seq(1:NROW(preguntas_clima_escolar)),preguntas_clima_escolar$name,preguntas_clima_escolar$label,preguntas_clima_escolar$rango) 
+kable(preg, format = "pandoc")  %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+# Anexo 2 - Descripción de las variables  
+
+```{r tabladescriptiva_est, echo=FALSE,include=TRUE}
+descripcion_estudiantes <- as.data.frame(descripcion_est)
+descripcion_estudiantes
+
+```
+
+```{r tabladescriptiva_doc, echo=FALSE, include=TRUE}
+descripcion_docentes <- as.data.frame(descripcion_doc)
+descripcion_doc
+```
+
+# Anexo 3 - Análisis de Variable Única (UVA)  
+
+Se calcula el wTO (weighted topological overlapping). En términos formales, el wTO mide la fuerza de la conexión entre dos nodos $i$ y $j$ y de estos con los otros nodos de la red y consiste en la suma de los pesos de las conexiones de cada uno de los nodos con el resto de los nodos controlando por el grado de los nodos, lo que genera un valor de wTO entre 0 y 1. A mayor valor, más redundantes son $i$ y $j$ lo que puede aumentar la aparente confiabilidad del constructo medido, pero al costo de ocultar la verdadera estructura de interrelaciones que subyace al mismo. De acuerdo con Golino et al (2020), un wTO superior a 0.25 puede incidir en los resultados del análisis exploratorio de redes y, por ende, se debe considerar la eliminación de alguna de las variables. 
+
+Corregir el exceso de redundancia contribuye a reducir ruido e innecesaria complejidad de la estructura patológica de la red. Al mismo tiempo, facilita la interpretación de los resultados y la detección de las comunidades de variables.  Ello se realiza mediante la función Univariate Variable Analysis (UVA) que utiliza métricas de overlaping topológico de los nodos para determinar si hay redundancias locales. 
+
+Al aplicar esta metodología se puedieron encontrar preguntas que tienen un alto wTO y, por ende, hay un posible riesgo de sobreajustar algunas dimensiones del clima escolar al incorporar preguntas que esencialmente dicen lo mismo. A continuación se presentan las comparaciones para estudiantes y para docentes en las variables que tuvieron un wTO mayor a 0.25.
+
+En el caso de los estudiantes, se identificaron tres conjuntos con redundancia de moderada a grande: 
+
+1) *pr1*, *pr2* y *pr3*  
+2) *sg1*, *sg2* y *sg3*  
+3) *rl1* y *rl3*  
+
+```{r, echo=FALSE,include=TRUE}
+UVA(data = envae.estudiantes.subset_cfa)
+```
+
+La decisión de eventualmente eliminar alguna de las variables topológicamente similares debe hacerse en consideración de la relación entre las preguntas y entre éstas y las otras. Con ese fin, se graficaron el wTO para cada una de las preguntas con respecto al resto. Cada uno de los siguientes gráficos muestra el resultado, donde la línea gris horizontal corta el eje Y en el punto 0.25 determinando que valores sobre ese umbral representan preguntas que empíricamente muestran patrones muy similares en la base de datos. 
+
+
+```{r UVA_est, echo=FALSE,include=FALSE}
+datos_uva_est <- UVA(data = envae.estudiantes.subset_cfa)
+pares_wTO_est <- datos_uva_est$wto$pairwise
+print(pares_wTO_est[pares_wTO_est$wto>0.25,])
+
+alto_uva_est <- c("sg1","sg2","sg3",
+                  "pr1","pr2","pr3","rl1","rl3")
+uva_pares_wTO_est <- pares_wTO_est[pares_wTO_est$node_i %in% alto_uva_est |
+                                     pares_wTO_est$node_j %in% alto_uva_est,]
+
+```
+
+```{r UVA_est2, echo=FALSE,include=TRUE}
+library(dplyr)
+# Función para filtrar valores basados en una variable específica
+filtrar_valores <- function(dataframe, variable) {
+  dataframe %>%
+    filter(node_i == variable | node_j == variable) %>%
+    select(wto)
+}
+
+#
+resultado_per1 <- filtrar_valores(uva_pares_wTO_est, "pr1")
+resultado_per2 <- filtrar_valores(uva_pares_wTO_est, "pr2")
+resultado_per3 <- filtrar_valores(uva_pares_wTO_est, "pr3")
+
+resultado_ind1 <- filtrar_valores(uva_pares_wTO_est, "sg1")
+resultado_ind2 <- filtrar_valores(uva_pares_wTO_est, "sg2")
+resultado_ind3 <- filtrar_valores(uva_pares_wTO_est, "sg3")
+
+resultado_rel1 <- filtrar_valores(uva_pares_wTO_est, "rl1")
+resultado_rel3 <- filtrar_valores(uva_pares_wTO_est, "rl3")
+
+z <- 24
+
+plot(seq(1:z), resultado_per3$wto[1:z],col="blue", pch=19, type="l",
+     lwd=2, 
+     ylab="weigthed topological overlapping",
+     xlab="other variables")
+lines(seq(1:z),resultado_per2$wto[1:z], col="green", type="l",
+      lwd=2)
+lines(seq(1:z),resultado_per1$wto[1:z], col="red", type="l",
+      lwd=2)
+lines(seq(1:z),y=rep(0.25,z), col="grey")
+text(x=z-2,y=0.23,"pr3", col="blue")
+text(x=z-2,y=0.20,"pr2", col="green")
+text(x=z-2,y=0.17,"pr1", col="red")
+
+plot(seq(1:z), resultado_ind1$wto[1:z],col="blue", pch=19, type="l",
+     lwd=2,
+     ylab="weigthed topological overlapping",
+     xlab="other variables")
+lines(seq(1:z),resultado_ind2$wto[1:z], col="green", type="l")
+lines(seq(1:z),resultado_ind3$wto[1:z], col="red", type="l")
+text(x=z-2,y=0.23,"sg1", col="blue")
+text(x=z-2,y=0.20,"sg2", col="green")
+text(x=z-2,y=0.17,"sg3", col="red")
+
+plot(seq(1:z), resultado_rel1$wto[1:z],col="blue", pch=19, type="l",
+          lwd=2, 
+     ylab="weigthed topological overlapping",
+     xlab="other variables")
+lines(seq(1:z),resultado_rel3$wto[1:z], col="green", type="l")
+text(x=z-2,y=0.23,"rl1", col="blue")
+text(x=z-2,y=0.20,"rl3", col="green")
+
+```
+
+Por otro lado, para los docentes, se identificaron cuatro conjuntos de variables con redundancias de moderadas a grandes: 
+
+1) *pr1*, *pr2* y *pr3*  
+2) *sg1*, *sg2* y *sg3*  
+3) *cn2*, *cn3* y *cn4*  
+4) *nr2* y *nr3*  
+
+```{r, echo=FALSE,include=TRUE}
+UVA(data = envae.docentes.subset_cfa)
+```
+
+
+```{r UVA_doc, echo=FALSE,include=FALSE}
+datos_uva_doc <- UVA(data = envae.docentes.subset_cfa)
+pares_wTO_doc <- datos_uva_doc$wto$pairwise
+print(pares_wTO_doc[pares_wTO_doc$wto>0.25,])
+
+alto_uva_doc <- c("sg1","sg2","sg3",
+                  "pr1","pr2","pr3","rl1","rl3",
+                  "cn2","cn3","cn4",
+                  "nr2","nr3")
+uva_pares_wTO_doc <- pares_wTO_doc[pares_wTO_doc$node_i %in% alto_uva_doc |
+                                     pares_wTO_doc$node_j %in% alto_uva_doc,]
+
+#
+```
+
+
+```{r UVA_doc2, echo=FALSE,include=TRUE}
+resultado_per1 <- filtrar_valores(uva_pares_wTO_doc, "pr1")
+resultado_per2 <- filtrar_valores(uva_pares_wTO_doc, "pr2")
+resultado_per3 <- filtrar_valores(uva_pares_wTO_doc, "pr3")
+
+resultado_ind1 <- filtrar_valores(uva_pares_wTO_doc, "sg1")
+resultado_ind2 <- filtrar_valores(uva_pares_wTO_doc, "sg2")
+resultado_ind3 <- filtrar_valores(uva_pares_wTO_doc, "sg3")
+
+resultado_norm2 <- filtrar_valores(uva_pares_wTO_doc, "cn2")
+resultado_otro1 <- filtrar_valores(uva_pares_wTO_doc, "cn3")
+resultado_otro2 <- filtrar_valores(uva_pares_wTO_doc, "cn4")
+
+resultado_norm2 <- filtrar_valores(uva_pares_wTO_doc, "nr2")
+resultado_norm3 <- filtrar_valores(uva_pares_wTO_doc, "nr3")
+
+z <- 24
+
+plot(seq(1:z), resultado_per3$wto[1:z],col="blue", pch=19, type="l",
+     lwd=2, 
+     ylab="weigthed topological overlapping",
+     xlab="other variables")
+lines(seq(1:z),resultado_per2$wto[1:z], col="green", type="l",
+      lwd=2)
+lines(seq(1:z),resultado_per1$wto[1:z], col="red", type="l",
+      lwd=2)
+lines(seq(1:z),y=rep(0.25,z), col="grey")
+text(x=z-2,y=0.23,"pr3", col="blue")
+text(x=z-2,y=0.20,"pr2", col="green")
+text(x=z-2,y=0.17,"pr1", col="red")
+
+plot(seq(1:z), resultado_ind1$wto[1:z],col="blue", pch=19, type="l",
+     lwd=2,
+     ylab="weigthed topological overlapping",
+     xlab="other variables")
+lines(seq(1:z),resultado_ind2$wto[1:z], col="green", type="l")
+lines(seq(1:z),resultado_ind3$wto[1:z], col="red", type="l")
+text(x=z-2,y=0.23,"sg1", col="blue")
+text(x=z-2,y=0.20,"sg2", col="green")
+text(x=z-2,y=0.17,"sg3", col="red")
+
+plot(seq(1:z), resultado_norm2$wto[1:z],col="blue", pch=19, type="l",
+          lwd=2, 
+     ylab="weigthed topological overlapping",
+     xlab="other variables")
+lines(seq(1:z),resultado_otro1$wto[1:z], col="green", type="l")
+lines(seq(1:z),resultado_otro2$wto[1:z], col="red", type="l")
+text(x=z-2,y=0.23,"nr2", col="blue")
+text(x=z-2,y=0.20,"cn3", col="green")
+text(x=z-2,y=0.17,"cn4", col="red")
+
+plot(seq(1:z), resultado_norm2$wto[1:z],col="blue", pch=19, type="l",
+          lwd=2, 
+     ylab="weigthed topological overlapping",
+     xlab="other variables")
+lines(seq(1:z),resultado_norm3$wto[1:z], col="green", type="l")
+text(x=z-2,y=0.23,"nr2", col="blue")
+text(x=z-2,y=0.20,"nr3", col="green")
+```
+
+# Anexo 4 - Resultados del análisis confirmatorio  
+
+Estudiantes
+```{r cfa_est_sum, echo=FALSE,include=TRUE}
+summary(cfa_fit_estudiantes)
+```
+
+
+
+Docentes
+```{r cfa_doc_sum, echo=FALSE,include=TRUE}
+summary(cfa_fit_docentes)
+```
+
+
+
+

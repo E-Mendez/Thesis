@@ -1,0 +1,616 @@
+---
+title: "modelos_cfa_envae"
+author: "Eduardo Méndez"
+date: "2024-03-22"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+#rm(list=ls())
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, results = "hide")
+```
+
+El presente script genera los modelos CFA probados en el capítulo 2. También incluye análisis de comunidades que sirven como insumo en la creación de modelos que exluyen sg1, sg2 y sg3.
+
+```{r libs}
+
+library(here)
+
+library(readxl)
+
+library(dplyr)
+library(psych)
+library(qgraph)
+library(igraph)
+
+library(tidyverse)
+library(haven)
+library(labelled)
+
+library(car)
+library(knitr)
+library(kableExtra)
+
+
+set.seed(115)
+aqui <-  "/home/takuan/Documents/Chap2" #Your folder 
+```
+
+
+
+```{r load.database, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+
+envae.docentes <- read_spss(file =paste0(aqui, "/data/ENVAE 2014 - Docentes.sav"))
+envae.estudiantes <- read_spss(paste0(aqui,"/data/ENVAE 2014 - Estudiantes_2.sav"))
+preguntas_clima_escolar <- read_excel(paste0(aqui,"/data/clima_escolar.xlsx")) 
+
+envae.docentes.subset <- envae.docentes[colnames(envae.docentes) %in% preguntas_clima_escolar$bbdd_doc]
+envae.estudiantes.subset <- envae.estudiantes[colnames(envae.estudiantes) %in% preguntas_clima_escolar$bbdd_est]
+
+# Crear un vector de mapeo entre bbdd_doc y name
+mapping_docentes <- setNames(preguntas_clima_escolar$name, preguntas_clima_escolar$bbdd_doc)
+mapping_estudiantes <- setNames(preguntas_clima_escolar$name, preguntas_clima_escolar$bbdd_est)
+
+# Renombrar las columnas del subconjunto
+names(envae.docentes.subset) <- mapping_docentes[names(envae.docentes.subset)]
+names(envae.estudiantes.subset) <- mapping_estudiantes[names(envae.estudiantes.subset)]
+
+# Elimnando datos vacios (evaluados como 0) y dobles marcas (evaluados como 9)
+envae.docentes.subset <- lapply(envae.docentes.subset, function(x) {
+    # Reemplazar 0 y 9 por NA
+    x <- replace(x, x == 0 | x == 9, NA)
+    return(x)
+})
+
+envae.estudiantes.subset <- lapply(envae.estudiantes.subset, function(x) {
+    # Reemplazar 0 y 9 por NA
+    x <- replace(x, x == 0 | x == 9, NA)
+    return(x)
+})
+
+# Convertir la lista resultante de nuevo a un dataframe
+envae.docentes.subset <- as.data.frame(envae.docentes.subset)
+envae.estudiantes.subset <- as.data.frame(envae.estudiantes.subset)
+
+# Nos quedamos sólo con los datos completos
+envae.docentes.subset <- na.omit(envae.docentes.subset)
+envae.estudiantes.subset <- na.omit(envae.estudiantes.subset)
+
+# Cambiamos orientación de la pregunta sobre seguridad general para alinearla con el resto
+envae.docentes.subset$sg0 <- car::recode(envae.docentes.subset$sg0, "1=2;2=1")
+envae.estudiantes.subset$sg0 <- car::recode(envae.estudiantes.subset$sg0, "1=2;2=1")
+
+variables_full <- colnames(envae.estudiantes.subset)
+envae.estudiantes.subset_cfa <- envae.estudiantes.subset[colnames(envae.estudiantes.subset) %in% variables_full]
+envae.docentes.subset_cfa <- envae.docentes.subset[colnames(envae.docentes.subset) %in% variables_full]
+```
+
+
+
+
+## Modelo EGA para el que incluye y excluye sg1- sg2- sg3.
+
+Insumo para elegir el emplazamiento de sg0 al eliminar sg1, sg2 y sg3 según el algoritmo de Louvain en el subconjunto. 
+
+```{r}
+library(EGAnet)
+
+# Docentes
+alumnos <- envae.estudiantes.subset %>% EGA(model="glasso", algorithm = "louvain")
+
+# Excluyendo las variables sg1, sg2, sg3
+alumnos.sin <- envae.estudiantes.subset[,(!(envae.docentes.subset %>% colnames %in% c("sg1", "sg2", "sg3"))) %>% which] %>% EGA(model="glasso", algorithm = "louvain")
+
+
+
+# Docentes
+profes <- envae.docentes.subset %>% EGA(model="glasso", algorithm = "louvain")
+
+# Excluyendo las variables sg1, sg2, sg3
+profes.sin <- envae.docentes.subset[,(!(envae.docentes.subset %>% colnames %in% c("sg1", "sg2", "sg3"))) %>% which] %>% EGA(model="glasso", algorithm = "louvain")
+
+
+```
+
+Al eliminar sg1, sg2 y sg3... sg0 se emplaza:
+
+    - En estudiantes, sg0 se mantiene en junto a engagement y convivencia escolar; 
+    - En docentes, sg0: Relacionbes entre estamentos (tr2-3-4-5); Horizontalidad hacia estudiantes (cn6, rl2); cn0-rl4; convivencia escolar (cn0-rl4) $\rightarrow$ convivencia escolar
+    
+Sentirse seguro (sg0) pertenece a la comunidad de "convivencia escolar"
+
+
+```{r}
+alumnos$wc[1:length(alumnos$wc)]
+alumnos.sin$wc[1:length(alumnos.sin$wc)] %>% sort
+```
+
+En estudiantes sg0 está con cn0 rl4 pr1 pr2 pr3
+
+```{r}
+#profes$wc[1:length(profes$wc)]
+#profes.sin$wc[1:length(profes.sin$wc)] #sg0 se va la 1
+#(profes.sin$wc[1:length(profes.sin$wc)] == 1)  %>% which 
+
+
+envae.docentes.subset[(profes.sin$wc[1:length(profes.sin$wc)] == 1)  %>% which %>% names] %>% var_label()
+# Relacionado a conviviencia
+```
+
+
+## Pruebas
+
+Modelos herárquicos y correlacionados con y sin variables de riesgo (sg1, sg2 y sg3), para cada base (2)
+
+8 Modelos
+
+```{r modelos.sub.comunidades}
+# sólo variables en común
+model.COMUN.corr.riesgo <- "# Variables latentes inspiradas en louvain
+  Engagement =~ pr1 + pr2 + pr3
+  Conv.esc =~ cn0 + rl4
+  Conv.docentes =~ rl1 + rl3 + tr1
+  Inter_estamento =~ tr2 + tr3 + tr4 + tr5
+  Horizontalidad =~ cn6 + rl2
+  Respeto_norm =~ cn1 + cn2 + cn3 + cn4 + cn5
+  Legitimidad_norm =~ nr1 + nr2 + nr3
+  Segu_subjetiva =~ sg0
+  Riesgo =~ sg1 + sg2 + sg3
+"
+
+# Incluye factor jerárquico
+model.COMUN.hie.riesgo <- 
+  "# Variables latentes inspiradas en louvain
+  Engagement =~ pr1 + pr2 + pr3
+  Conv.esc =~ cn0 + rl4
+  Conv.docentes =~ rl1 + rl3 + tr1
+  Inter_estamento =~ tr2 + tr3 + tr4 + tr5
+  Horizontalidad =~ cn6 + rl2
+  Respeto_norm =~ cn1 + cn2 + cn3 + cn4 + cn5
+  Legitimidad_norm =~ nr1 + nr2 + nr3
+  Segu_subjetiva =~ sg0
+  Riesgo =~ sg1 + sg2 + sg3
+# Factor jerárquico
+  CLIMA =~ Engagement + Conv.esc + Conv.docentes + Inter_estamento + Horizontalidad + Respeto_norm + Legitimidad_norm + Segu_subjetiva + Riesgo
+"
+
+# Excluye riesgo
+
+model.COMUN.corr.S.riesgo <- "# Variables latentes inspiradas en louvain
+  Engagement =~ pr1 + pr2 + pr3
+  Conv.esc =~ cn0 + rl4 + sg0 # Sentirse seguro es parte de convivencia escolar al eliminar sg1-3
+  Conv.docentes =~ rl1 + rl3 + tr1
+  Inter_estamento =~ tr2 + tr3 + tr4 + tr5
+  Horizontalidad =~ cn6 + rl2
+  Respeto_norm =~ cn1 + cn2 + cn3 + cn4 + cn5
+  Legitimidad_norm =~ nr1 + nr2 + nr3
+"
+
+# Excluye riesgo, incluye factor jerárquico
+model.COMUN.hie.S.riesgo <- 
+  "# Variables latentes inspiradas en louvain
+  Engagement =~ pr1 + pr2 + pr3
+  Conv.esc =~ cn0 + rl4 + sg0 #sg0 (sentirse seguro) forma parte de la comunidad de convivencia escolar
+  Conv.docentes =~ rl1 + rl3 + tr1
+  Inter_estamento =~ tr2 + tr3 + tr4 + tr5
+  Horizontalidad =~ cn6 + rl2
+  Respeto_norm =~ cn1 + cn2 + cn3 + cn4 + cn5
+  Legitimidad_norm =~ nr1 + nr2 + nr3
+
+# Factor jerárquico
+  CLIMA =~ Engagement + Conv.esc + Conv.docentes + Inter_estamento + Horizontalidad + Respeto_norm + Legitimidad_norm
+"
+```
+
+
+
+
+
+```{r corre.mods.1}
+library(lavaan)
+
+# Aplica modelos a estudiantes
+for (i in 1:length(ls(pattern = "model.COMUN."))){
+  #assign(x, value)
+  assign(
+    paste0("fit.alumnos.",gsub("model.", "", ls(pattern = "model.")[i]))
+    ,cfa(model = get(ls(pattern = "model.")[i]), data = envae.estudiantes.subset))
+}
+
+# Aplica modelos a docentes
+for (i in 1:length(ls(pattern = "model."))){
+  #assign(x, value)
+  assign(
+    paste0("fit.profes.",gsub("model.", "", ls(pattern = "model.")[i]))
+    ,cfa(model = get(ls(pattern = "model.")[i]), data = envae.docentes.subset))
+}
+
+
+
+```
+
+
+```{r compara.fit.1}
+compare_fit <- 
+  fitmeasures(get(ls(patter = "fit.")[1]),
+  fit.measures = c("chisq", "pvalue", "cfi", "tli","rmsea", "srmr","aic", "bic"))
+
+for (i in 2:length(ls(pattern = "fit."))){
+  compare_fit <- rbind(compare_fit,
+              fitmeasures(get(ls(patter = "fit.")[i]),
+                fit.measures = c("chisq", "pvalue", "cfi", "tli","rmsea", "srmr","aic", "bic"))
+  )
+
+  }
+
+rownames(compare_fit) <- ls(pattern= "fit.")
+
+```
+
+
+
+
+
+## Modelos específicos
+
+
+```{r modelos.subcoms.agregadas}
+# Modelos en estudiantes
+
+
+model2.riesgo.SPECIFIC.estudiantes <- "
+  #Ambitos en comun:
+  Engagement =~ pr1 + pr2 + pr3
+  Conv.esc =~ cn0 + rl4
+  Conv.docentes =~ rl1 + rl3 + tr1
+  Inter_estamento =~ tr2 + tr3 + tr4 + tr5
+  Horizontalidad =~ cn6 + rl2
+  Respeto_norm =~ cn1 + cn2 + cn3 + cn4 + cn5
+  Legitimidad_norm =~ nr1 + nr2 + nr3
+  Segu_subjetiva =~ sg0
+  Riesgo =~ sg1 + sg2 + sg3
+  # Variables latentes inspiradas en louvain
+  C1 =~ Engagement + Conv.esc + Segu_subjetiva
+  C2 =~ Conv.docentes + Inter_estamento
+  C3 =~ Horizontalidad + Legitimidad_norm
+"
+
+
+model2.riesgo.SPECIFIC.docentes <- "
+  #Ambitos en comun:
+  Engagement =~ pr1 + pr2 + pr3
+  Conv.esc =~ cn0 + rl4
+  Conv.docentes =~ rl1 + rl3 + tr1
+  Inter_estamento =~ tr2 + tr3 + tr4 + tr5
+  Horizontalidad =~ cn6 + rl2
+  Respeto_norm =~ cn1 + cn2 + cn3 + cn4 + cn5
+  Legitimidad_norm =~ nr1 + nr2 + nr3
+  Segu_subjetiva =~ sg0
+  Riesgo =~ sg1 + sg2 + sg3
+  # Variables latentes inspiradas en louvain
+  C1 =~ Conv.esc + Inter_estamento + Horizontalidad
+  C2 =~ Conv.docentes + Legitimidad_norm
+  C3 =~ Segu_subjetiva + Riesgo
+"
+
+model2.sin_riesgo.SPECIFIC.estudiantes <- "
+  Engagement =~ pr1 + pr2 + pr3
+  Conv.esc =~ cn0 + rl4 + sg0 # Sentirse seguro es parte de convivencia escolar al eliminar sg1-3
+  Conv.docentes =~ rl1 + rl3 + tr1
+  Inter_estamento =~ tr2 + tr3 + tr4 + tr5
+  Horizontalidad =~ cn6 + rl2
+  Respeto_norm =~ cn1 + cn2 + cn3 + cn4 + cn5
+  Legitimidad_norm =~ nr1 + nr2 + nr3
+  # Variables latentes inspiradas en louvain
+  C1 =~ Engagement + Conv.esc
+  C2 =~ Conv.docentes + Inter_estamento
+  C3 =~ Horizontalidad + Legitimidad_norm
+  
+"
+
+model2.sin_riesgo.SPECIFIC.docentes <- "
+  #Ambitos en comun:
+  Engagement =~ pr1 + pr2 + pr3
+  Conv.esc =~ cn0 + rl4 +sg0
+  Conv.docentes =~ rl1 + rl3 + tr1
+  Inter_estamento =~ tr2 + tr3 + tr4 + tr5
+  Horizontalidad =~ cn6 + rl2
+  Respeto_norm =~ cn1 + cn2 + cn3 + cn4 + cn5
+  Legitimidad_norm =~ nr1 + nr2 + nr3
+  # Variables latentes inspiradas en louvain
+  C1 =~ Conv.esc + Inter_estamento + Horizontalidad
+  C2 =~ Conv.docentes + Legitimidad_norm
+"
+
+
+```
+
+
+```{r los.corre}
+library(lavaan)
+
+# Aplica modelos a estudiantes
+for (i in 1:length(ls(pattern = "model2."))){
+  #assign(x, value)
+  assign(
+    paste0("fit2.alumnos.",gsub("model2.", "", ls(pattern = "model2.")[i]))
+    ,cfa(model = get(ls(pattern = "model2.")[i]), data = envae.estudiantes.subset))
+}
+
+# Aplica modelos a docentes
+for (i in 1:length(ls(pattern = "model2."))){
+  #assign(x, value)
+  assign(
+    paste0("fit2.profes.",gsub("model2.", "", ls(pattern = "model2.")[i]))
+    ,cfa(model = get(ls(pattern = "model2.")[i]), data = envae.docentes.subset))
+}
+
+
+
+```
+
+
+```{r cres.tabla}
+compare_fit2 <- 
+  fitmeasures(get(ls(pattern = "fit2.")[1]),
+  fit.measures = c("chisq", "pvalue", "cfi", "tli","rmsea", "srmr","aic", "bic"))
+
+for (i in 2:length(ls(pattern = "fit2."))){
+  compare_fit2 <- rbind(compare_fit2,
+              fitmeasures(get(ls(patter = "fit.")[i]),
+                fit.measures = c("chisq", "pvalue", "cfi", "tli","rmsea", "srmr","aic", "bic"))
+  )
+
+  }
+
+rownames(compare_fit2) <- ls(pattern= "fit2.")
+
+```
+
+
+
+
+
+```{r modelos.solo.louvain}
+model.louvain.riesgo.estudiantes <- "
+  # Variables latenteslouvain
+  C1 =~ pr1 + pr2 + pr3 + cn0 + rl4 + sg0
+  C2 =~ rl1 + rl3 + tr1 + tr2 + tr3 + tr4 + tr5
+  C3 =~ cn6 + rl2 + nr1 + nr2 + nr3
+  C4 =~ cn1 + cn2 + cn3 + cn4 + cn5
+  C5 =~ sg1 + sg2 + sg3
+"
+
+model.louvain.riesgo.docentes <- "
+  # Variables latentes louvain
+  C1 =~ cn0 + rl4 + tr2 + tr3 + tr4 + tr5 +  cn6 + rl2
+  C2 =~ rl1 + rl3 + tr1 + nr1 + nr2 + nr3
+  C3 =~ sg0 + sg1 + sg2 + sg3
+  C4 =~ pr1 + pr2 + pr3 #Engagement
+  C5 =~ cn1 + cn2 + cn3 + cn4 + cn5 #Respeto_norm
+"
+
+model.louvain.sin.estudiantes <- "
+  # Variables latentes de louvain
+  C1 =~ pr1 + pr2 + pr3 + cn0 + rl4 + sg0
+  C2 =~ rl1 + rl3 + tr1 + tr2 + tr3 + tr4 + tr5
+  C3 =~ cn6 + rl2 + nr1 + nr2 + nr3
+  C4 =~ cn1 + cn2 + cn3 + cn4 + cn5
+  
+"
+## Escribirlo
+model.louvain.sin.docentes <- "
+  # Variables latentes de louvain
+  C1 =~ cn0 + rl4 + tr2 + tr3 + tr4 + tr5 + cn6 + rl2
+  C2 =~ rl1 + rl3 + tr1 + nr1 + nr2 + nr3
+  C3 =~ pr1 + pr2 + pr3 #Engagement 
+  C4 =~ cn1 + cn2 + cn3 + cn4 + cn5 #Respeto_norm 
+"
+
+```
+
+
+```{r corre.mods.louvan}
+library(lavaan)
+
+# Aplica modelos a estudiantes
+for (i in 1:length(ls(pattern = "model.louvain"))){
+  #assign(x, value)
+  assign(
+    paste0("fit.louvain.alumnos.",gsub("model.louvain", "", ls(pattern = "model.louvain")[i]))
+    ,cfa(model = get(ls(pattern = "model.louvain")[i]), data = envae.estudiantes.subset))
+}
+
+# Aplica modelos a docentes
+for (i in 1:length(ls(pattern = "model.louvain"))){
+  #assign(x, value)
+  assign(
+    paste0("fit.louvain.profes",gsub("model.louvain", "", ls(pattern = "model.louvain")[i]))
+    ,cfa(model = get(ls(pattern = "model.louvain")[i]), data = envae.docentes.subset))
+}
+
+
+
+```
+
+
+
+```{r crea.tabla.fit.louvain} 
+compare_fit.louvain <- 
+  fitmeasures(get(ls(pattern = "fit.louvain.")[1]),
+  fit.measures = c("chisq", "pvalue", "cfi", "tli","rmsea", "srmr","aic", "bic"))
+
+for (i in 2:length(ls(pattern = "fit.louvain."))){
+  compare_fit.louvain <- rbind(compare_fit.louvain,
+              fitmeasures(get(ls(patter = "fit.louvain.")[i]),
+                fit.measures = c("chisq", "pvalue", "cfi", "tli","rmsea", "srmr","aic", "bic"))
+  )
+
+  }
+
+rownames(compare_fit.louvain) <- ls(pattern= "fit.louvain.")
+
+```
+
+
+## Comparación de todos los modelos
+
+```{r tabla.con.todos.los.modelos}
+
+
+tabla.compara.todo <- 
+ls(pattern = "fit")[4:length(ls(pattern = "fit"))][1] %>% get %>% fitmeasures(fit.measures = c("chisq", "pvalue", "cfi", "tli","rmsea", "srmr","aic", "bic"))
+
+for( i in 5:length(ls(pattern = "fit"))){
+  tabla.compara.todo <- rbind(tabla.compara.todo,
+                              ls(pattern = "fit")[i] %>% get %>% fitmeasures(fit.measures = c("chisq", "pvalue", "cfi", "tli","rmsea", "srmr","aic", "bic")))
+  }
+
+rownames(tabla.compara.todo) <- ls(pattern = "fit")[4:length(ls(pattern = "fit"))]
+tabla.compara.todo <- data.frame(tabla.compara.todo)
+
+#fitmeasures(get(ls(pattern = "fit2.")[1]),
+#  fit.measures = c("chisq", "pvalue", "cfi", "tli","rmsea", "srmr","aic", "bic")
+
+```
+
+
+
+```{r tablasXbase.informante}
+# Suconjuntos para cada base de infromante
+tabla.estudiantes <- tabla.compara.todo[ grep("\\.alumnos",  # Solo modelos en base de estudiantes
+      (tabla.compara.todo %>% rownames)),]
+
+
+tabla.docentes <-  
+  tabla.compara.todo[ grep("\\.profes",  # Sólo modelos en base de docentes
+      (tabla.compara.todo %>% rownames)),]
+
+```
+
+
+```{r}
+colnames(tabla.estudiantes)
+```
+
+
+```{r}
+
+tabla.estudiantes[which(tabla.estudiantes$cfi >= 0.9 & tabla.estudiantes$tli  >= 0.9 & tabla.estudiantes$rmsea <= 0.06 & tabla.estudiantes$srmr <= 0.06), ]
+
+
+```
+
+
+
+```{r}
+# Subconjuntos que cumplen las cuatro condiciones, ordenados por AIC:
+tabla.buenos.estudiantes <- tabla.estudiantes[which(tabla.estudiantes$cfi >= 0.9 & 
+                                                      tabla.estudiantes$tli  >= 0.9 &
+                                                      tabla.estudiantes$rmsea <= 0.06 &
+                                                      tabla.estudiantes$srmr <= 0.06), ]
+
+tabla.buenos.estudiantes <-tabla.buenos.estudiantes[order(tabla.buenos.estudiantes$aic),]
+
+tabla.buenos.docentes <- tabla.docentes[which(tabla.docentes$cfi >= 0.9 & tabla.docentes$tli  >= 0.9 & tabla.docentes$rmsea <= 0.06 & tabla.docentes$srmr <= 0.06), ]
+tabla.buenos.docentes <-tabla.buenos.docentes[order(tabla.buenos.docentes$aic),]
+
+
+```
+
+
+
+```{r}
+# Tabla 2 en Cap 2
+T2 <- 
+rbind(rep("",ncol(tabla.buenos.estudiantes)),
+
+      tabla.buenos.estudiantes) 
+rownames(T2)[1] <- "Estudiantes"
+
+T2 <- rbind(T2,
+      rep("",ncol(tabla.buenos.estudiantes)))#)
+      
+rownames(T2)[nrow(T2)] <- "Docentes"
+T2 <- rbind(T2, 
+
+            tabla.buenos.docentes)
+
+
+
+rownames(T2) <- gsub("fit.alumnos.", "", (T2 %>% rownames))
+rownames(T2) <- gsub("fit2.alumnos.", "", (T2 %>% rownames))
+rownames(T2) <- gsub("fit.profes.", ".", (T2 %>% rownames))
+rownames(T2) <- gsub("fit2.profes.", ".", (T2 %>% rownames))
+
+
+
+
+```
+
+## Tabla 2 en cap. 2
+
+```{r, results = "asis"}                        
+T2 %>% kbl(format = "latex",
+    align = "l",
+    booktabs = TRUE,
+    longtable = TRUE) #%>% kable_styling(font_size = 9) %>% 
+  #kableExtra::landscape()
+```
+
+
+```{r}
+saveRDS(T2, "/home/takuan/Documents/Chap2/data/tabla2.rds")
+
+```
+
+
+
+
+## Representación gráfica de los modelos.
+
+### mejor modelo estudiantes
+
+```{r, results = "asis"}
+# Figura de modelo para estudiantes en el cap2
+library(semPlot)
+semPaths(
+  ((tabla.buenos.estudiantes %>% rownames)[1] %>% get),
+   curvePivot = TRUE, style = "openMX", residuals = FALSE, layout = "circle", nCharNodes =8, what = "std", freestyle = c("black", 3),
+  structural = TRUE)
+  
+```
+
+### Mejor modelo Docentes
+
+```{r}
+# Figura de modelo para docentes en el cap2
+library(semPlot)
+semPaths(
+  ((tabla.buenos.docentes %>% rownames)[1] %>% get),
+   curvePivot = TRUE, style = "openMX", residuals = FALSE, layout = "circle", nCharNodes =8, what = "std", freestyle = c("black", 3),
+  structural = TRUE)
+  
+```
+### Plot: Todos los modelos 
+
+```{r}
+for (i in 1:nrow(tabla.compara.todo)){
+semPaths(
+      (tabla.compara.todo %>% rownames)[i] %>% get,
+      curvePivot = TRUE, style = "openMX", residuals = FALSE, layout = "tree", nCharNodes =8, what = "std", freestyle = c("black", 3),
+  structural = TRUE)
+  paste((tabla.compara.todo %>% rownames)[1])
+}
+```
+
+
+
+## Session Info
+
+
+
+```{r, results="asis"}
+sessionInfo() %>% print
+```
+
