@@ -1,1 +1,1 @@
-Data & visualizations for chapter 1
+Data & visualizations for PhD thesis
